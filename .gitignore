@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Env / secrets
+.env
+.env.*
+*.secret.*
+
+# Cloud / infra
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+gcp-key*.json
+*-service-account.json
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Data (simulator/twin outputs — generated, not source)
+/data/
+*.db
+*.sqlite3
