@@ -1,0 +1,395 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>COFFWE System Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Work+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --paper:#EEF0E4; --paper-raised:#E2E6D3; --paper-line:#D7DCC5;
+    --ink:#1E2B22; --ink-soft:#44523F; --ink-faint:#6B7A64;
+    --canopy:#33503E; --canopy-text:#2C4536;
+    --laterite:#8B4632; --cherry:#A1332A; --mist:#55707A;
+    --border: rgba(30,43,34,0.17);
+    --tag-bg:#E2E6D3;
+    --font-display:'Spectral','Iowan Old Style','Georgia',serif;
+    --font-body:'Work Sans','Segoe UI',sans-serif;
+    --font-mono:'JetBrains Mono','SFMono-Regular',monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#141D16; --paper-raised:#1C2820; --paper-line:#2A382E;
+      --ink:#E8EADC; --ink-soft:#BFCBB4; --ink-faint:#8CA084;
+      --canopy:#8CBB9B; --canopy-text:#9BCBA8;
+      --laterite:#D08E6F; --cherry:#E28A77; --mist:#9CBAC2;
+      --border: rgba(232,234,220,0.16);
+      --tag-bg:#243025;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#141D16; --paper-raised:#1C2820; --paper-line:#2A382E;
+    --ink:#E8EADC; --ink-soft:#BFCBB4; --ink-faint:#8CA084;
+    --canopy:#8CBB9B; --canopy-text:#9BCBA8;
+    --laterite:#D08E6F; --cherry:#E28A77; --mist:#9CBAC2;
+    --border: rgba(232,234,220,0.16);
+    --tag-bg:#243025;
+  }
+
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--paper); color:var(--ink); font-family:var(--font-body); font-size:16px; line-height:1.55; }
+  .wrap{ max-width:1000px; margin:0 auto; padding:28px 20px 80px; }
+
+  h1,h2,h3{ font-family:var(--font-display); font-weight:600; text-wrap:balance; margin:0; }
+  h1{ font-size:2.4rem; line-height:1.08; color:var(--canopy-text); margin-top:4px; }
+  h2{ font-size:1.45rem; color:var(--canopy-text); border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:20px; }
+  p{ max-width:68ch; color:var(--ink-soft); }
+  .eyebrow{ font-family:var(--font-mono); font-size:0.72rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--laterite); }
+  .tagline{ font-size:1.02rem; color:var(--ink-soft); margin-top:8px; max-width:62ch; }
+
+  section{ margin-bottom:54px; }
+  figure{ margin:0; }
+  figcaption{ font-size:0.86rem; color:var(--ink-faint); margin-top:12px; max-width:72ch; }
+  .svgframe{ background:var(--paper-raised); border:1px solid var(--border); border-radius:12px; padding:14px; overflow-x:auto; }
+  svg{ max-width:100%; height:auto; display:block; }
+
+  /* diagram classes */
+  .nbox{ fill:var(--paper); stroke:var(--border); stroke-width:1.2; }
+  .lane{ fill:none; stroke:var(--mist); stroke-width:1.4; stroke-dasharray:5 5; }
+  .s-sim{ fill:var(--laterite); }
+  .s-data{ fill:var(--canopy); }
+  .s-ai{ fill:var(--cherry); }
+  .s-human{ fill:var(--mist); }
+  .dtxt{ fill:var(--ink); font-family:var(--font-body); }
+  .dsub{ fill:var(--ink-faint); font-family:var(--font-body); }
+  .dnum{ fill:var(--ink-faint); font-family:var(--font-mono); }
+  .darrowtxt{ fill:var(--ink-faint); font-family:var(--font-mono); }
+  .flowline{ stroke:var(--ink-faint); stroke-width:1.6; fill:none; }
+  .loopline{ stroke:var(--cherry); stroke-width:2; fill:none; }
+  .looptxt{ fill:var(--cherry); font-family:var(--font-mono); }
+
+  .layers{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:760px){ .layers{ grid-template-columns:1fr; } }
+  article.layer{ background:var(--paper-raised); border:1px solid var(--border); border-radius:10px; padding:16px 18px; display:flex; flex-direction:column; gap:9px; }
+  .layer-head{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  .layer-head .num{ font-family:var(--font-mono); font-size:0.72rem; color:var(--laterite); }
+  .layer-head h3{ font-size:1.05rem; color:var(--ink); flex:1; }
+  .phase{ font-family:var(--font-mono); font-size:0.66rem; letter-spacing:0.05em; text-transform:uppercase; color:var(--ink-faint); border:1px solid var(--border); border-radius:999px; padding:2px 9px; white-space:nowrap; }
+  .what{ font-size:0.88rem; margin:0; color:var(--ink-soft); }
+  .opt{ display:flex; gap:9px; font-size:0.85rem; align-items:baseline; }
+  .opt .lbl{ font-family:var(--font-mono); font-size:0.66rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-faint); min-width:74px; flex-shrink:0; padding-top:2px; }
+  .opt.pick .val{ color:var(--ink); font-weight:500; }
+  .opt.alt .val{ color:var(--ink-faint); }
+  .why{ font-size:0.82rem; color:var(--ink-faint); margin:2px 0 0; font-style:italic; }
+
+  .decide{ background:var(--paper-raised); border-left:3px solid var(--cherry); border-radius:0 10px 10px 0; padding:18px 22px; }
+  .decide h3{ font-size:1.05rem; color:var(--ink); margin-bottom:8px; }
+  .decide ul{ margin:0; padding-left:20px; color:var(--ink-soft); font-size:0.92rem; }
+  .decide li{ margin-bottom:7px; }
+  .tag{ font-family:var(--font-mono); font-size:0.78rem; background:var(--tag-bg); border:1px solid var(--border); border-radius:5px; padding:1px 6px; }
+
+  footer{ border-top:1px solid var(--border); padding-top:20px; font-size:0.85rem; color:var(--ink-faint); }
+</style>
+
+<div class="wrap">
+
+  <div class="eyebrow">COFFWE · decision aid</div>
+  <h1>COFFWE System Architecture</h1>
+  <p class="tagline">Every layer the finished estate ecosystem needs, what flows between them, and the realistic tool options at each level — so the small choices land in the right context.</p>
+
+  <section style="margin-top:36px;">
+    <h2>The loop</h2>
+    <p>The thing that makes this a digital twin rather than a dashboard is the return path: decisions made by the AI brains flow <em>back</em> into the simulated estate and change it. Everything else exists to make that loop trustworthy.</p>
+    <figure class="svgframe">
+      <svg viewBox="0 0 1060 1070" role="img" aria-label="System flow: the simulation engine feeds virtual sensors, which publish over MQTT to a broker, into an ingestion service, into storage, into the digital twin core, which feeds ML models and AI brains, whose decisions reach an action dispatcher that sends actuator commands back into the simulation, closing the loop. A parallel human-in-the-loop lane holds the dashboard, the approval queue for critical decisions, and worker task notifications.">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <polygon points="0,0 10,5 0,10" fill="var(--ink-faint)"/>
+          </marker>
+          <marker id="arc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <polygon points="0,0 10,5 0,10" fill="var(--cherry)"/>
+          </marker>
+        </defs>
+
+        <!-- human lane -->
+        <rect class="lane" x="762" y="548" width="248" height="412" rx="10"/>
+        <text class="dnum" x="886" y="538" font-size="10.5" text-anchor="middle" letter-spacing="1.5">HUMAN IN THE LOOP</text>
+
+        <!-- center boxes -->
+        <rect class="nbox" x="300" y="60" width="400" height="62" rx="7"/>
+        <rect class="s-sim" x="300" y="60" width="4" height="62"/>
+        <text class="dnum" x="318" y="82" font-size="10.5">01</text>
+        <text class="dtxt" x="318" y="96" font-size="14.5" font-weight="600">Simulation engine</text>
+        <text class="dsub" x="318" y="112" font-size="11">the imaginary estate — generates ground truth</text>
+
+        <rect class="nbox" x="300" y="160" width="400" height="62" rx="7"/>
+        <rect class="s-sim" x="300" y="160" width="4" height="62"/>
+        <text class="dnum" x="318" y="182" font-size="10.5">02</text>
+        <text class="dtxt" x="318" y="196" font-size="14.5" font-weight="600">Virtual sensors &amp; actuators</text>
+        <text class="dsub" x="318" y="212" font-size="11">soil, leaf wetness, weather, streams, dryer curtains</text>
+
+        <rect class="nbox" x="300" y="260" width="400" height="62" rx="7"/>
+        <rect class="s-data" x="300" y="260" width="4" height="62"/>
+        <text class="dnum" x="318" y="282" font-size="10.5">03</text>
+        <text class="dtxt" x="318" y="296" font-size="14.5" font-weight="600">Message broker</text>
+        <text class="dsub" x="318" y="312" font-size="11">MQTT locally, bridged to cloud pub/sub</text>
+
+        <rect class="nbox" x="300" y="360" width="400" height="62" rx="7"/>
+        <rect class="s-data" x="300" y="360" width="4" height="62"/>
+        <text class="dnum" x="318" y="382" font-size="10.5">04</text>
+        <text class="dtxt" x="318" y="396" font-size="14.5" font-weight="600">Ingestion &amp; validation</text>
+        <text class="dsub" x="318" y="412" font-size="11">subscribe, validate, normalize, persist</text>
+
+        <rect class="nbox" x="300" y="460" width="400" height="78" rx="7"/>
+        <rect class="s-data" x="300" y="460" width="4" height="78"/>
+        <text class="dnum" x="318" y="482" font-size="10.5">05</text>
+        <text class="dtxt" x="318" y="496" font-size="14.5" font-weight="600">Storage</text>
+        <text class="dsub" x="318" y="512" font-size="11">relational · time-series · object · analytics</text>
+        <text class="dsub" x="318" y="528" font-size="11">44,950 tagged plants + every reading they emit</text>
+
+        <rect class="nbox" x="300" y="576" width="400" height="62" rx="7"/>
+        <rect class="s-data" x="300" y="576" width="4" height="62"/>
+        <text class="dnum" x="318" y="598" font-size="10.5">06</text>
+        <text class="dtxt" x="318" y="612" font-size="14.5" font-weight="600">Digital twin core</text>
+        <text class="dsub" x="318" y="628" font-size="11">authoritative current state + history + what-ifs</text>
+
+        <rect class="nbox" x="300" y="676" width="400" height="62" rx="7"/>
+        <rect class="s-ai" x="300" y="676" width="4" height="62"/>
+        <text class="dnum" x="318" y="698" font-size="10.5">07</text>
+        <text class="dtxt" x="318" y="712" font-size="14.5" font-weight="600">ML &amp; statistical models</text>
+        <text class="dsub" x="318" y="728" font-size="11">yield forecast, rust risk, anomaly detection, scheduling</text>
+
+        <rect class="nbox" x="300" y="776" width="400" height="76" rx="7"/>
+        <rect class="s-ai" x="300" y="776" width="4" height="76"/>
+        <text class="dnum" x="318" y="798" font-size="10.5">08</text>
+        <text class="dtxt" x="318" y="812" font-size="14.5" font-weight="600">AI brains + supervisor</text>
+        <text class="dsub" x="318" y="828" font-size="11">cultivation · soil · pest · water · workforce · logistics</text>
+        <text class="dsub" x="318" y="842" font-size="11">supervisor resolves conflicts, routes escalations</text>
+
+        <rect class="nbox" x="300" y="890" width="400" height="62" rx="7"/>
+        <rect class="s-sim" x="300" y="890" width="4" height="62"/>
+        <text class="dnum" x="318" y="912" font-size="10.5">09</text>
+        <text class="dtxt" x="318" y="926" font-size="14.5" font-weight="600">Action dispatcher</text>
+        <text class="dsub" x="318" y="942" font-size="11">issues commands, assigns tasks, verifies completion</text>
+
+        <!-- vertical flow arrows -->
+        <g class="flowline" marker-end="url(#ar)">
+          <line x1="500" y1="122" x2="500" y2="154"/>
+          <line x1="500" y1="222" x2="500" y2="254"/>
+          <line x1="500" y1="322" x2="500" y2="354"/>
+          <line x1="500" y1="422" x2="500" y2="454"/>
+          <line x1="500" y1="538" x2="500" y2="570"/>
+          <line x1="500" y1="638" x2="500" y2="670"/>
+          <line x1="500" y1="738" x2="500" y2="770"/>
+          <line x1="500" y1="852" x2="500" y2="884"/>
+        </g>
+        <g class="darrowtxt" font-size="10">
+          <text x="512" y="142">estate state, each tick</text>
+          <text x="512" y="242">MQTT publish</text>
+          <text x="512" y="342">subscribe</text>
+          <text x="512" y="442">validated writes</text>
+          <text x="512" y="558">reads / serves state</text>
+          <text x="512" y="658">features</text>
+          <text x="512" y="758">predictions + context</text>
+          <text x="512" y="872">decisions within policy</text>
+        </g>
+
+        <!-- human lane boxes -->
+        <rect class="nbox" x="786" y="576" width="200" height="62" rx="7"/>
+        <rect class="s-human" x="786" y="576" width="4" height="62"/>
+        <text class="dtxt" x="802" y="602" font-size="13.5" font-weight="600">Dashboard</text>
+        <text class="dsub" x="802" y="620" font-size="10.5">map, live readings, alerts</text>
+
+        <rect class="nbox" x="786" y="776" width="200" height="76" rx="7"/>
+        <rect class="s-human" x="786" y="776" width="4" height="76"/>
+        <text class="dtxt" x="802" y="802" font-size="13.5" font-weight="600">Approval queue</text>
+        <text class="dsub" x="802" y="820" font-size="10.5">critical calls only —</text>
+        <text class="dsub" x="802" y="834" font-size="10.5">spend, chemicals, hiring</text>
+
+        <rect class="nbox" x="786" y="890" width="200" height="62" rx="7"/>
+        <rect class="s-human" x="786" y="890" width="4" height="62"/>
+        <text class="dtxt" x="802" y="916" font-size="13.5" font-weight="600">Worker tasks</text>
+        <text class="dsub" x="802" y="934" font-size="10.5">notify, then verify done</text>
+
+        <!-- human lane arrows -->
+        <g class="flowline" marker-end="url(#ar)">
+          <line x1="700" y1="607" x2="780" y2="607"/>
+          <line x1="700" y1="800" x2="780" y2="800"/>
+          <line x1="700" y1="921" x2="780" y2="921"/>
+        </g>
+        <path class="flowline" d="M786,840 Q740,840 718,876" marker-end="url(#ar)"/>
+        <g class="darrowtxt" font-size="10">
+          <text x="706" y="600">live state</text>
+          <text x="702" y="793">escalate</text>
+          <text x="690" y="868" text-anchor="end">approved</text>
+          <text x="706" y="914">notify + verify</text>
+        </g>
+
+        <!-- closed loop -->
+        <path class="loopline" d="M300,921 L150,921 L150,91 L294,91" marker-end="url(#arc)"/>
+        <text class="looptxt" x="140" y="506" font-size="11" text-anchor="middle" transform="rotate(-90 140 506)">actuator commands + completed work change the estate</text>
+        <text class="looptxt" x="164" y="952" font-size="10.5">closed loop</text>
+      </svg>
+      <figcaption>Layers 01–05 move reality into storage; 06 turns it into a queryable twin; 07–08 reason over it; 09 acts. The red path is what closes the loop — irrigation valves opening, dryer curtains shutting, a worker marking a task done — each one changing the estate that layer 01 simulates. The dashed lane is the human boundary: everything inside it needs a person, everything outside it runs unattended.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Tools at each level</h2>
+    <p>"Pick" is what I'd choose for this project and why; "also exists" is what you'd meet in industry doing the same job — worth recognizing by name even when we don't use it.</p>
+    <div class="layers">
+
+      <article class="layer">
+        <div class="layer-head"><span class="num">01</span><h3>Simulation engine</h3><span class="phase">Phase 2</span></div>
+        <p class="what">Generates the estate's ground truth: weather, soil moisture, plant growth, pest pressure, worker activity, machine wear.</p>
+        <div class="opt pick"><span class="lbl">Pick</span><span class="val">Custom Python + NumPy/SciPy, with SimPy if we need event scheduling</span></div>
+        <div class="opt alt"><span class="lbl">Also exists</span><span class="val">Mesa (agent-based modeling), AnyLogic/Simulink (commercial), pure discrete-event frameworks</span></div>
+        <p class="why">Writing the agronomy math by hand <em>is</em> the statistics learning — a framework would hide exactly the part worth understanding.</p>
+      </article>
+
+      <article class="layer">
+        <div class="layer-head"><span class="num">02</span><h3>Virtual devices</h3><span class="phase">Phase 3</span></div>
+        <p class="what">Fake sensors and actuators that behave like real field hardware — including dropouts, drift, and late readings.</p>
+        <div class="opt pick"><span class="lbl">Pick</span><span class="val">Python <span class="tag">paho-mqtt</span> publishers, one process per device group</span></div>
+        <div class="opt alt"><span class="lbl">Also exists</span><span class="val">HTTP POST, gRPC streaming, CoAP, LoRaWAN simulators, Node-RED</span></div>
+        <p class="why">MQTT is the genuine IoT protocol — teaches QoS levels, retained messages, and last-will handling you'd need with real hardware.</p>
+      </article>
+
+      <article class="layer">
+        <div class="layer-head"><span class="num">03</span><h3>Message broker</h3><span class="phase">Phase 3</span></div>
+        <p class="what">Decouples device publishing from consumer reading, so neither side blocks the other.</p>
+        <div class="opt pick"><span class="lbl">Pick</span><span class="val">Mosquitto locally → bridged to GCP Pub/Sub (always-free tier)</span></div>
+        <div class="opt alt"><span class="lbl">Also exists</span><span class="val">EMQX, HiveMQ, Kafka / Redpanda, NATS, RabbitMQ, Redis Streams</span></div>
+        <p class="why">Mosquitto is tiny and free; the Pub/Sub bridge is where managed cloud messaging gets learned without a bill.</p>
+      </article>
+
+      <article class="layer">
+        <div class="layer-head"><span class="num">04</span><h3>Ingestion &amp; pipelines</h3><span class="phase">Phase 3</span></div>
+        <p class="what">Subscribes, validates, normalizes, and writes; later runs scheduled batch jobs (daily rollups, retraining data).</p>
+        <div class="opt pick"><span class="lbl">Pick</span><span class="val">Python asyncio consumer + Pydantic validation; Prefect for scheduled jobs</span></div>
+        <div class="opt alt"><span class="lbl">Also exists</span><span class="val">Apache Beam/Dataflow, Airflow, Dagster, dbt (transforms), Benthos, Telegraf</span></div>
+        <p class="why">Hand-writing the consumer first shows you what the managed tools are abstracting — then Airflow/Dagster make sense rather than feeling magic.</p>
+      </article>
+
+      <article class="layer">
+        <div class="layer-head"><span class="num">05a</span><h3>Relational store</h3><span class="phase">Phase 1 — now</span></div>
+        <p class="what">The estate's structure: blocks, 44,950 tagged plants, workers, machines, inventory, harvest batches.</p>
+        <div class="opt pick"><span class="lbl">Pick</span><span class="val">PostgreSQL (native, via Homebrew) + SQLAlchemy 2.0</span></div>
+        <div class="opt alt"><span class="lbl">Also exists</span><span class="val">MySQL, SQLite, CockroachDB; SQLModel or Django ORM instead of SQLAlchemy</span></div>
+        <p class="why">Already decided. Postgres also carries us into time-series and vector search later, so one engine covers three jobs.</p>
+      </article>
+
+      <article class="layer">
+        <div class="layer-head"><span class="num">05b</span><h3>Schema migrations</h3><span class="phase">Phase 1 — pending</span></div>
+        <p class="what">Versioned, reviewable schema changes instead of dropping and recreating tables.</p>
+        <div class="opt pick"><span class="lbl">Pick</span><span class="val">Alembic (pairs natively with SQLAlchemy)</span></div>
+        <div class="opt alt"><span class="lbl">Also exists</span><span class="val">Flyway, Liquibase, sqitch, yoyo, Prisma Migrate, Django migrations</span></div>
+        <p class="why">This is the open question — see "decisions due" below.</p>
+      </article>
+
+      <article class="layer">
+        <div class="layer-head"><span class="num">05c</span><h3>Time-series store</h3><span class="phase">Phase 3</span></div>
+        <p class="what">Every sensor reading from every device, forever — the volume side of the data problem.</p>
+        <div class="opt pick"><span class="lbl">Pick</span><span class="val">TimescaleDB extension on the same Postgres</span></div>
+        <div class="opt alt"><span class="lbl">Also exists</span><span class="val">InfluxDB, ClickHouse, Prometheus (metrics only), BigQuery, DuckDB (local analytics)</span></div>
+        <p class="why">One database engine to run and back up, but you still learn real hypertables, retention policies, and continuous aggregates.</p>
+      </article>
+
+      <article class="layer">
+        <div class="layer-head"><span class="num">05d</span><h3>Object &amp; analytics</h3><span class="phase">Phase 4+</span></div>
+        <p class="what">Camera-trap images, model artifacts, raw data archives, and heavy analytical queries.</p>
+        <div class="opt pick"><span class="lbl">Pick</span><span class="val">GCS free tier for objects; BigQuery sandbox or DuckDB for analytics</span></div>
+        <div class="opt alt"><span class="lbl">Also exists</span><span class="val">MinIO (self-hosted S3), S3, Snowflake, Redshift</span></div>
+        <p class="why">BigQuery's sandbox is genuinely free with no card charge; DuckDB costs nothing and runs locally — both are worth knowing.</p>
+      </article>
+
+      <article class="layer">
+        <div class="layer-head"><span class="num">06</span><h3>Digital twin core</h3><span class="phase">Phase 4</span></div>
+        <p class="what">Holds the authoritative current state, its history, and the ability to answer "what if" without touching reality.</p>
+        <div class="opt pick"><span class="lbl">Pick</span><span class="val">Custom FastAPI service over Postgres (+ Redis for hot state later)</span></div>
+        <div class="opt alt"><span class="lbl">Also exists</span><span class="val">Eclipse Ditto (open-source twin platform), Azure Digital Twins, AWS IoT TwinMaker</span></div>
+        <p class="why">The managed platforms hide state reconciliation and drift detection — which is precisely the digital-twin concept you're here to learn.</p>
+      </article>
+
+      <article class="layer">
+        <div class="layer-head"><span class="num">07</span><h3>ML &amp; statistics</h3><span class="phase">Phase 6</span></div>
+        <p class="what">Forecasting yield and weather, predicting rust/borer outbreaks, detecting faulty sensors, optimizing schedules.</p>
+        <div class="opt pick"><span class="lbl">Pick</span><span class="val">scikit-learn + statsmodels first, XGBoost/LightGBM for tabular, PyTorch only when DL earns it; MLflow for tracking; Colab free GPU</span></div>
+        <div class="opt alt"><span class="lbl">Also exists</span><span class="val">Prophet, Darts, PyMC (Bayesian), Optuna (tuning), OR-Tools (scheduling), Vertex AI, Weights &amp; Biases</span></div>
+        <p class="why">Classical models first means you can tell whether deep learning actually helped — otherwise every result looks like magic.</p>
+      </article>
+
+      <article class="layer">
+        <div class="layer-head"><span class="num">08</span><h3>AI brains &amp; orchestration</h3><span class="phase">Phase 7</span></div>
+        <p class="what">Each brain reasons over its domain; the supervisor resolves conflicts between them and decides what reaches you.</p>
+        <div class="opt pick"><span class="lbl">Pick</span><span class="val">Claude Agent SDK / tool-use loops + a custom supervisor; pgvector for retrieval</span></div>
+        <div class="opt alt"><span class="lbl">Also exists</span><span class="val">LangGraph, CrewAI, AutoGen, LlamaIndex; Chroma/Qdrant/Pinecone for vectors</span></div>
+        <p class="why">A hand-built supervisor keeps the escalation policy explicit and inspectable — which matters more here than framework convenience.</p>
+      </article>
+
+      <article class="layer">
+        <div class="layer-head"><span class="num">08b</span><h3>Guardrails &amp; evaluation</h3><span class="phase">Phase 7</span></div>
+        <p class="what">The thresholds that separate "the agent just does it" from "ask Raja first" — and the harness proving the agents behave.</p>
+        <div class="opt pick"><span class="lbl">Pick</span><span class="val">Explicit policy rules in code + a custom eval harness with LLM-as-judge</span></div>
+        <div class="opt alt"><span class="lbl">Also exists</span><span class="val">OPA/Rego, Guardrails AI, Ragas, DeepEval, promptfoo</span></div>
+        <p class="why">Your guardrail thresholds are project decisions, not library config — they belong somewhere you can read them in one sitting.</p>
+      </article>
+
+      <article class="layer">
+        <div class="layer-head"><span class="num">09</span><h3>Actions &amp; workflows</h3><span class="phase">Phase 8</span></div>
+        <p class="what">Turns a decision into an actuator command or a worker task, then confirms it actually happened.</p>
+        <div class="opt pick"><span class="lbl">Pick</span><span class="val">Celery or RQ on Redis to start; Temporal if we want durable retry/compensation</span></div>
+        <div class="opt alt"><span class="lbl">Also exists</span><span class="val">Prefect flows, APScheduler, GCP Cloud Tasks, AWS Step Functions</span></div>
+        <p class="why">Verification is the hard half: a command sent is not work done, and the twin must reflect reality either way.</p>
+      </article>
+
+      <article class="layer">
+        <div class="layer-head"><span class="num">10</span><h3>Presentation</h3><span class="phase">Phase 4, then 8</span></div>
+        <p class="what">The estate map, live readings, alerts, and the approval inbox where you accept or reject critical calls.</p>
+        <div class="opt pick"><span class="lbl">Pick</span><span class="val">Streamlit for the first dashboard; FastAPI + React later when interactivity demands it; Grafana for ops metrics</span></div>
+        <div class="opt alt"><span class="lbl">Also exists</span><span class="val">Plotly Dash, Panel, Gradio, Next.js, Observable</span></div>
+        <p class="why">Streamlit gets a working dashboard in pure Python in an afternoon — the UI shouldn't block the systems learning this early.</p>
+      </article>
+
+      <article class="layer">
+        <div class="layer-head"><span class="num">11</span><h3>Platform &amp; ops</h3><span class="phase">Phase 9–10</span></div>
+        <p class="what">Containers, infrastructure as code, CI/CD, deployment, observability, secrets, and cost control.</p>
+        <div class="opt pick"><span class="lbl">Pick</span><span class="val">Docker, Terraform, GitHub Actions, Cloud Run + e2-micro (always-free), Cloud Logging + OpenTelemetry, Secret Manager</span></div>
+        <div class="opt alt"><span class="lbl">Also exists</span><span class="val">Pulumi, Ansible, GitLab CI, Kubernetes/GKE, Prometheus + Grafana, Vault, SOPS</span></div>
+        <p class="why">Docker arrives here, not now — containerizing is much clearer once there are several real services that need to ship together.</p>
+      </article>
+
+      <article class="layer">
+        <div class="layer-head"><span class="num">12</span><h3>Testing &amp; data quality</h3><span class="phase">Throughout</span></div>
+        <p class="what">Proving the simulator's invariants hold, the pipelines don't silently corrupt, and the models haven't drifted.</p>
+        <div class="opt pick"><span class="lbl">Pick</span><span class="val">pytest + Hypothesis (property-based testing), Pandera for dataframe contracts, Evidently for drift</span></div>
+        <div class="opt alt"><span class="lbl">Also exists</span><span class="val">Great Expectations, Locust (load), Soda, dbt tests, Testcontainers</span></div>
+        <p class="why">Property-based testing fits simulations unusually well: you assert laws ("soil moisture never exceeds saturation") instead of fixed examples.</p>
+      </article>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>Decisions due now</h2>
+    <div class="decide">
+      <h3>Settled</h3>
+      <ul>
+        <li><strong>Python end-to-end</strong>, <strong>GCP always-free tier</strong>, <strong>native Postgres via Homebrew</strong> for this phase.</li>
+        <li><strong>Docker deferred to Phase 9</strong> — one new concept at a time, and containers make more sense once several services exist.</li>
+      </ul>
+      <h3 style="margin-top:16px;">Open — the one I need from you</h3>
+      <ul>
+        <li><strong>Alembic now, or plain <span class="tag">create_all()</span> first?</strong> Alembic means every schema change from today onward is a reviewable migration file — the professional habit, and genuinely useful once the schema starts evolving in Phase 2. The cost is a little extra setup today while the schema is still moving fast.</li>
+      </ul>
+      <h3 style="margin-top:16px;">Deliberately deferred</h3>
+      <ul>
+        <li>Time-series engine (Phase 3), twin service shape (Phase 4), agent framework (Phase 7), deployment target (Phase 9) — each is easier to choose with the previous layer actually built.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    A map, not a contract — any layer can be revisited when the one before it teaches us something new.
+  </footer>
+
+</div>
+
+</body></html>

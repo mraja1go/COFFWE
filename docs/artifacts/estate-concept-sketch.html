@@ -1,0 +1,435 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>COFFWE Estate Concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Work+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --paper:#EEF0E4; --paper-raised:#E2E6D3; --paper-line:#D7DCC5;
+    --ink:#1E2B22; --ink-soft:#44523F; --ink-faint:#6B7A64;
+    --canopy:#33503E; --canopy-deep:#1F3327; --canopy-text:#2C4536;
+    --laterite:#8B4632; --cherry:#A1332A; --mist:#55707A;
+    --border: rgba(30,43,34,0.17);
+    --c-robusta:#4F7355; --c-arabica:#365C66; --c-mixed:#6B6B3E; --c-opensun:#C9903D; --c-forest:#223B2B; --c-infra:#B9765A;
+    --tag-bg:#E2E6D3;
+    --font-display:'Spectral','Iowan Old Style','Georgia',serif;
+    --font-body:'Work Sans','Segoe UI',sans-serif;
+    --font-mono:'JetBrains Mono','SFMono-Regular',monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#141D16; --paper-raised:#1C2820; --paper-line:#2A382E;
+      --ink:#E8EADC; --ink-soft:#BFCBB4; --ink-faint:#8CA084;
+      --canopy:#8CBB9B; --canopy-deep:#0E1812; --canopy-text:#9BCBA8;
+      --laterite:#D08E6F; --cherry:#E28A77; --mist:#9CBAC2;
+      --border: rgba(232,234,220,0.16);
+      --c-robusta:#5E8A66; --c-arabica:#49798A; --c-mixed:#8A8A52; --c-opensun:#D9A24F; --c-forest:#2F5440; --c-infra:#C98468;
+      --tag-bg:#243025;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#141D16; --paper-raised:#1C2820; --paper-line:#2A382E;
+    --ink:#E8EADC; --ink-soft:#BFCBB4; --ink-faint:#8CA084;
+    --canopy:#8CBB9B; --canopy-deep:#0E1812; --canopy-text:#9BCBA8;
+    --laterite:#D08E6F; --cherry:#E28A77; --mist:#9CBAC2;
+    --border: rgba(232,234,220,0.16);
+    --c-robusta:#5E8A66; --c-arabica:#49798A; --c-mixed:#8A8A52; --c-opensun:#D9A24F; --c-forest:#2F5440; --c-infra:#C98468;
+    --tag-bg:#243025;
+  }
+
+  *{ box-sizing: border-box; }
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:var(--font-body); font-size:16px; line-height:1.55;
+  }
+  .wrap{ max-width: 980px; margin: 0 auto; padding: 28px 20px 80px; }
+
+  h1,h2,h3{ font-family:var(--font-display); font-weight:600; text-wrap:balance; color:var(--canopy-text); margin:0; }
+  h2{ font-size:1.5rem; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:18px; }
+  h3{ font-size:1.08rem; color:var(--ink); margin-bottom:8px; }
+  p{ max-width:65ch; color:var(--ink-soft); }
+  a{ color:var(--canopy-text); }
+
+  /* masthead */
+  .masthead{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-end; gap:16px; margin-bottom:6px; }
+  .eyebrow{ font-family:var(--font-mono); font-size:0.72rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--laterite); }
+  h1{ font-size:2.6rem; line-height:1.05; margin-top:4px; }
+  .tagline{ font-size:1.02rem; color:var(--ink-soft); margin-top:6px; max-width:48ch; }
+  .draft-badge{ font-family:var(--font-mono); font-size:0.7rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--cherry); border:1px solid var(--cherry); border-radius:999px; padding:5px 12px; white-space:nowrap; }
+
+  .statbar{ display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:10px; overflow:hidden; margin:26px 0 40px; }
+  .stat{ background:var(--paper-raised); padding:13px 14px; }
+  .stat .v{ font-family:var(--font-mono); font-variant-numeric:tabular-nums; font-size:1.18rem; font-weight:600; color:var(--canopy-text); }
+  .stat .k{ font-size:0.72rem; color:var(--ink-faint); margin-top:3px; text-transform:uppercase; letter-spacing:0.05em; }
+
+  nav.toc{ display:flex; flex-wrap:wrap; gap:6px 14px; font-size:0.84rem; margin-bottom:46px; padding:12px 16px; background:var(--paper-raised); border:1px solid var(--border); border-radius:10px; }
+  nav.toc a{ color:var(--ink-soft); text-decoration:none; }
+  nav.toc a:hover{ color:var(--canopy-text); text-decoration:underline; }
+  nav.toc span.sep{ color:var(--paper-line); }
+
+  section{ margin-bottom:56px; }
+  figure{ margin:0; }
+  figcaption{ font-size:0.86rem; color:var(--ink-faint); margin-top:12px; max-width:70ch; }
+  .svgframe{ background:var(--paper-raised); border:1px solid var(--border); border-radius:12px; padding:14px; }
+  svg{ max-width:100%; height:auto; display:block; }
+
+  .tablewrap{ overflow-x:auto; border:1px solid var(--border); border-radius:10px; }
+  table{ border-collapse:collapse; width:100%; min-width:720px; font-size:0.88rem; }
+  th,td{ text-align:left; padding:9px 12px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  td.wrap-cell, th.wrap-cell{ white-space:normal; }
+  thead th{ font-family:var(--font-mono); font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-faint); background:var(--paper-raised); position:sticky; top:0; }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr:hover{ background:var(--paper-raised); }
+  td.num, th.num{ font-family:var(--font-mono); font-variant-numeric:tabular-nums; text-align:right; }
+  .tag{ font-family:var(--font-mono); font-size:0.78rem; background:var(--tag-bg); border:1px solid var(--border); border-radius:5px; padding:1px 6px; }
+
+  .pillrow{ display:flex; gap:6px; flex-wrap:wrap; }
+  .pill{ font-size:0.72rem; font-family:var(--font-mono); padding:2px 8px; border-radius:999px; border:1px solid var(--border); color:var(--ink-soft); }
+  .pill.good{ color:var(--canopy-text); border-color:var(--canopy-text); }
+  .pill.warn{ color:var(--laterite); border-color:var(--laterite); }
+
+  .twocol{ display:grid; grid-template-columns:1fr 1fr; gap:28px; }
+  @media (max-width:700px){ .twocol{ grid-template-columns:1fr; } }
+
+  .note{ border-left:3px solid var(--laterite); padding:10px 16px; background:var(--paper-raised); border-radius:0 8px 8px 0; font-size:0.9rem; color:var(--ink-soft); }
+  .note strong{ color:var(--ink); }
+
+  .steps{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; }
+  .step{ background:var(--paper-raised); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
+  .step .n{ font-family:var(--font-mono); font-size:0.72rem; color:var(--laterite); letter-spacing:0.06em; }
+  .step h4{ margin:4px 0 6px; font-family:var(--font-display); font-size:1.02rem; color:var(--ink); }
+  .step p{ font-size:0.86rem; margin:0; }
+  .arrowdown{ display:flex; align-items:center; justify-content:center; color:var(--ink-faint); font-size:0.9rem; }
+
+  footer{ border-top:1px solid var(--border); padding-top:20px; font-size:0.85rem; color:var(--ink-faint); }
+</style>
+
+<div class="wrap">
+
+  <div class="masthead">
+    <div>
+      <div class="eyebrow">Concept draft · field notes v0.1</div>
+      <h1>COFFWE</h1>
+      <p class="tagline">A 50-year-old shade coffee estate in the Western Ghats highlands — Arabica &amp; Robusta, intercropped pepper and areca, 10 blocks tracked tree-by-tree.</p>
+    </div>
+    <div class="draft-badge">Pending your review</div>
+  </div>
+
+  <div class="statbar">
+    <div class="stat"><div class="v">70 ac</div><div class="k">10 blocks</div></div>
+    <div class="stat"><div class="v">1200–1300 m</div><div class="k">elevation band</div></div>
+    <div class="stat"><div class="v">30,100</div><div class="k">coffee plants</div></div>
+    <div class="stat"><div class="v">15,050 / 15,050</div><div class="k">Arabica / Robusta</div></div>
+    <div class="stat"><div class="v">8,690</div><div class="k">pepper vines</div></div>
+    <div class="stat"><div class="v">≈44,950</div><div class="k">tagged individuals</div></div>
+    <div class="stat"><div class="v">50 yrs</div><div class="k">estate age</div></div>
+    <div class="stat"><div class="v">15 + seasonal</div><div class="k">workforce</div></div>
+  </div>
+
+  <nav class="toc">
+    <a href="#sketch">Estate sketch</a><span class="sep">/</span>
+    <a href="#blocks">Block field notes</a><span class="sep">/</span>
+    <a href="#crops">Crops &amp; species</a><span class="sep">/</span>
+    <a href="#loop">Livestock &amp; organic loop</a><span class="sep">/</span>
+    <a href="#water">Water &amp; irrigation</a><span class="sep">/</span>
+    <a href="#processing">Processing &amp; nursery</a><span class="sep">/</span>
+    <a href="#corridor">Wildlife corridor</a><span class="sep">/</span>
+    <a href="#pest">Organic pest system</a><span class="sep">/</span>
+    <a href="#tagging">Tagging convention</a>
+  </nav>
+
+  <section id="sketch">
+    <h2>Estate sketch</h2>
+    <p>Schematic, not to scale — vertical position encodes elevation (ridge at top, stream exit at bottom), hatching marks the steep blocks, fill colour marks the dominant variety. This is the shape the digital twin's map view will eventually mirror with live sensor data.</p>
+    <figure class="svgframe">
+      <svg viewBox="0 0 1080 860" role="img" aria-label="Schematic map of COFFWE estate showing ten blocks terraced by elevation from the stream-side entrance at 1200m to the ridge and forest buffer at 1300m, with two streams, a centrally located infrastructure core among the blocks, and a legend.">
+        <defs>
+          <pattern id="steep" width="9" height="9" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+            <rect width="9" height="9" fill="transparent"/>
+            <line x1="0" y1="0" x2="0" y2="9" stroke="#000000" stroke-opacity="0.3" stroke-width="2.4"/>
+          </pattern>
+          <marker id="flow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <polygon points="0,0 10,5 0,10" fill="var(--mist)"/>
+          </marker>
+        </defs>
+
+        <!-- boundary -->
+        <rect x="95" y="35" width="800" height="770" rx="12" fill="none" stroke="var(--ink-faint)" stroke-width="1.5" stroke-dasharray="3 5"/>
+        <text x="100" y="24" font-family="var(--font-mono)" font-size="12" fill="var(--ink-faint)">COFFWE — schematic boundary, not to scale</text>
+
+        <!-- elevation contour dividers -->
+        <g stroke="var(--border)" stroke-width="1.5">
+          <path d="M95,189 Q300,183 500,190 T895,187" fill="none"/>
+          <path d="M95,343 Q300,337 500,344 T895,341" fill="none"/>
+          <path d="M95,497 Q300,491 500,498 T895,495" fill="none"/>
+          <path d="M95,651 Q300,645 500,652 T895,649" fill="none"/>
+        </g>
+        <g font-family="var(--font-mono)" font-size="11" fill="var(--ink-faint)">
+          <text x="18" y="40">1300 m</text>
+          <text x="18" y="194">1290 m</text>
+          <text x="18" y="348">1275 m</text>
+          <text x="18" y="502">1255 m</text>
+          <text x="18" y="656">1230 m</text>
+          <text x="18" y="800">1200 m</text>
+          <text x="10" y="420" transform="rotate(-90 10 420)">ridge → stream</text>
+        </g>
+
+        <!-- streams -->
+        <path d="M750,58 Q830,300 700,480 Q560,640 320,710 Q230,765 172,788" fill="none" stroke="var(--mist)" stroke-width="4" stroke-linecap="round" marker-end="url(#flow)"/>
+        <text x="742" y="46" font-family="var(--font-mono)" font-size="11" fill="var(--mist)">Stream 1</text>
+        <path d="M604,198 Q480,280 400,340 Q330,400 330,470 Q340,520 396,558" fill="none" stroke="var(--mist)" stroke-width="3.4" stroke-linecap="round" marker-end="url(#flow)"/>
+        <text x="596" y="188" font-family="var(--font-mono)" font-size="11" fill="var(--mist)">Stream 2</text>
+
+        <!-- Tier 5 (ridge) -->
+        <rect x="115" y="47" width="120" height="130" class="blk opensun"/>
+        <rect x="115" y="47" width="120" height="130" fill="url(#steep)"/>
+        <rect x="250" y="47" width="110" height="130" class="blk forest"/>
+        <rect x="250" y="47" width="110" height="130" fill="url(#steep)"/>
+        <circle cx="330" cy="70" r="5" fill="var(--cherry)"/>
+        <text x="340" y="74" font-family="var(--font-mono)" font-size="9.5" fill="var(--ink)">beehive fence</text>
+        <text x="610" y="95" font-family="var(--font-body)" font-size="10.5" fill="var(--ink-faint)">↳ B10 buffer borders reserve forest (outside estate)</text>
+
+        <!-- Tier 4 -->
+        <rect x="115" y="201" width="160" height="130" class="blk arabica"/>
+        <rect x="290" y="201" width="200" height="130" class="blk arabica"/>
+        <rect x="290" y="201" width="200" height="130" fill="url(#steep)"/>
+
+        <!-- Tier 3 (B6, central estate core, B7) -->
+        <rect x="115" y="355" width="160" height="130" class="blk mixed"/>
+        <rect x="365" y="356" width="260" height="140" rx="8" fill="none" stroke="var(--laterite)" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <text x="495" y="372" font-family="var(--font-mono)" font-size="10" fill="var(--laterite)" text-anchor="middle">ESTATE CORE · ≈6 ac · central</text>
+        <g font-family="var(--font-body)" font-size="9.5" fill="#F4F0E6" text-anchor="middle">
+          <rect x="372" y="380" width="78" height="52" rx="5" class="blk infra"/><text x="411" y="410">Processing</text>
+          <rect x="456" y="380" width="78" height="52" rx="5" class="blk infra"/><text x="495" y="410">Storage</text>
+          <rect x="540" y="380" width="78" height="52" rx="5" class="blk infra"/><text x="579" y="410">Lab</text>
+          <rect x="372" y="438" width="78" height="52" rx="5" class="blk infra"/><text x="411" y="468">Nursery</text>
+          <rect x="456" y="438" width="78" height="52" rx="5" class="blk infra"/><text x="495" y="468">Livestock</text>
+          <rect x="540" y="438" width="78" height="52" rx="5" class="blk infra"/><text x="579" y="468">Housing</text>
+        </g>
+        <rect x="645" y="355" width="180" height="130" class="blk mixed"/>
+
+        <!-- Tier 2 -->
+        <rect x="115" y="509" width="180" height="130" class="blk mixed"/>
+        <rect x="310" y="509" width="140" height="130" class="blk mixed"/>
+        <rect x="310" y="509" width="140" height="130" fill="url(#steep)"/>
+
+        <!-- Tier 1 -->
+        <rect x="115" y="663" width="120" height="130" class="blk robusta"/>
+        <rect x="250" y="663" width="140" height="130" class="blk robusta"/>
+        <rect x="405" y="663" width="160" height="130" class="blk robusta"/>
+
+        <!-- block labels -->
+        <g font-family="var(--font-display)" font-weight="600" fill="#F4F6EC" text-anchor="middle">
+          <text x="175" y="105" font-size="18">B10a</text>
+          <text x="305" y="105" font-size="16">B10b</text>
+          <text x="195" y="259" font-size="18">B8</text>
+          <text x="390" y="259" font-size="18">B9</text>
+          <text x="195" y="413" font-size="18">B6</text>
+          <text x="735" y="413" font-size="18">B7</text>
+          <text x="205" y="567" font-size="18">B4</text>
+          <text x="380" y="567" font-size="18">B5</text>
+          <text x="175" y="721" font-size="18">B1</text>
+          <text x="320" y="721" font-size="18">B2</text>
+          <text x="485" y="721" font-size="18">B3</text>
+        </g>
+        <g font-family="var(--font-mono)" fill="#F4F6EC" text-anchor="middle" font-size="10.5" opacity="0.92">
+          <text x="175" y="122">4 ac · open-sun trial</text>
+          <text x="305" y="122">3 ac · forest buffer</text>
+          <text x="195" y="276">7 ac · Arabica</text>
+          <text x="390" y="276">9 ac · Arabica · steep</text>
+          <text x="195" y="430">7 ac · Arabica+Robusta</text>
+          <text x="735" y="430">8 ac · Arabica+Robusta</text>
+          <text x="205" y="584">8 ac · Robusta+Arabica</text>
+          <text x="380" y="584">6 ac · steep · Stream 2</text>
+          <text x="175" y="738">5 ac · Robusta · Stream 1</text>
+          <text x="320" y="738">6 ac · Robusta</text>
+          <text x="485" y="738">7 ac · Robusta+Areca</text>
+        </g>
+
+        <!-- tag id callout from B3 -->
+        <line x1="478" y1="730" x2="610" y2="705" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="2 3"/>
+        <circle cx="478" cy="730" r="3" fill="var(--ink-faint)"/>
+        <text x="616" y="702" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">B3·RB·00147</text>
+        <text x="616" y="716" font-family="var(--font-body)" font-size="9.5" fill="var(--ink-faint)">one tagged Robusta tree, block 3</text>
+
+        <!-- legend -->
+        <g font-family="var(--font-body)" font-size="11.5" fill="var(--ink)">
+          <text x="915" y="30" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-faint)">LEGEND</text>
+          <rect x="915" y="44" width="16" height="16" class="blk robusta"/><text x="938" y="56">Robusta-primary block</text>
+          <rect x="915" y="68" width="16" height="16" class="blk arabica"/><text x="938" y="80">Arabica-primary block</text>
+          <rect x="915" y="92" width="16" height="16" class="blk mixed"/><text x="938" y="104">Mixed / transition block</text>
+          <rect x="915" y="116" width="16" height="16" class="blk opensun"/><text x="938" y="128">Open-sun trial plot</text>
+          <rect x="915" y="140" width="16" height="16" class="blk forest"/><text x="938" y="152">Forest buffer (no crop)</text>
+          <rect x="915" y="164" width="16" height="16" class="blk infra"/><text x="938" y="176">Infrastructure core</text>
+          <rect x="915" y="188" width="16" height="16" fill="var(--paper)"/><rect x="915" y="188" width="16" height="16" fill="url(#steep)"/><rect x="915" y="188" width="16" height="16" fill="none" stroke="var(--border)"/><text x="938" y="200">Steep-slope overlay</text>
+          <line x1="917" y1="220" x2="931" y2="220" stroke="var(--mist)" stroke-width="3"/><text x="938" y="224">Stream, flow direction</text>
+          <circle cx="923" cy="240" r="5" fill="var(--cherry)"/><text x="938" y="244">Beehive fence point</text>
+        </g>
+      </svg>
+      <style>
+        .blk.robusta{ fill:var(--c-robusta); }
+        .blk.arabica{ fill:var(--c-arabica); }
+        .blk.mixed{ fill:var(--c-mixed); }
+        .blk.opensun{ fill:var(--c-opensun); }
+        .blk.forest{ fill:var(--c-forest); }
+        .blk.infra{ fill:var(--c-infra); }
+      </style>
+    </figure>
+    <figcaption>B4–B9 sit in the transition and prime bands where elevation suits a mix or a single variety; B1–B3 are the warmer, lower, Robusta-only ground; B10 carries the open-sun experiment plus the estate's last cultivated strip before the forest buffer. The estate core — processing, storage, lab, nursery, livestock sheds, and worker housing — sits at the geographic centre of the ten blocks, roughly equidistant from all of them for daily access.</figcaption>
+  </section>
+
+  <section id="blocks">
+    <h2>Block field notes</h2>
+    <p>All ten blocks sum to exactly 70 acres. Arabica is biased to the cooler, higher blocks and Robusta to the warmer, lower ones, with four transition blocks carrying both — matching how growers actually split these varieties by elevation.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th>Block</th><th class="num">Acres</th><th>Elevation</th><th>Slope</th><th class="wrap-cell">Soil</th><th>Canopy</th>
+          <th class="wrap-cell">Primary crop</th><th class="wrap-cell">Intercrop</th><th class="num">Shade/native trees</th><th class="wrap-cell">Notes</th>
+        </tr></thead>
+        <tbody>
+          <tr><td><strong>B1</strong> Stream Bend</td><td class="num">5</td><td>1200–1210 m</td><td>Gentle</td><td class="wrap-cell">Alluvial-lateritic loam</td><td>100% shade</td><td class="wrap-cell">Robusta — 2,500</td><td class="wrap-cell">Pepper 750 · Areca border 40</td><td class="num">350</td><td class="wrap-cell">Borders Stream 1; nearest block to estate entrance</td></tr>
+          <tr><td><strong>B2</strong> Lower Robusta</td><td class="num">6</td><td>1205–1225 m</td><td>Gentle</td><td class="wrap-cell">Red lateritic loam</td><td>100% shade</td><td class="wrap-cell">Robusta — 3,000</td><td class="wrap-cell">Pepper 900</td><td class="num">420</td><td class="wrap-cell">—</td></tr>
+          <tr><td><strong>B3</strong> Areca Grove</td><td class="num">7</td><td>1210–1235 m</td><td>Gentle</td><td class="wrap-cell">Lateritic loam, well-drained</td><td>100% shade</td><td class="wrap-cell">Robusta — 3,150</td><td class="wrap-cell">Areca nut 1,260 · Pepper 1,120</td><td class="num">280</td><td class="wrap-cell">Dedicated areca–coffee–pepper polyculture</td></tr>
+          <tr><td><strong>B4</strong> Transition Lower</td><td class="num">8</td><td>1225–1250 m</td><td>Gentle (long bump)</td><td class="wrap-cell">Lateritic loam</td><td>90% shade</td><td class="wrap-cell">Robusta 2,000 + Arabica 2,000</td><td class="wrap-cell">Pepper 1,200</td><td class="num">560</td><td class="wrap-cell">First Arabica/Robusta transition block</td></tr>
+          <tr><td><strong>B5</strong> Valley Steep</td><td class="num">6</td><td>1235–1260 m</td><td><strong>Steep</strong></td><td class="wrap-cell">Thin rocky lateritic</td><td>100% shade</td><td class="wrap-cell">Arabica 1,500 + Robusta 1,500</td><td class="wrap-cell">Pepper 600 · Areca border 60</td><td class="num">540</td><td class="wrap-cell">Borders Stream 2; extra shade trees for erosion control</td></tr>
+          <tr><td><strong>B6</strong> Mid Transition</td><td class="num">7</td><td>1250–1270 m</td><td>Gentle</td><td class="wrap-cell">Loam</td><td>85% shade</td><td class="wrap-cell">Arabica 2,100 + Robusta 1,400</td><td class="wrap-cell">Pepper 1,050</td><td class="num">490</td><td class="wrap-cell">—</td></tr>
+          <tr><td><strong>B7</strong> Upper Transition</td><td class="num">8</td><td>1260–1280 m</td><td>Gentle</td><td class="wrap-cell">Sandy loam</td><td>90% shade</td><td class="wrap-cell">Arabica 2,800 + Robusta 800</td><td class="wrap-cell">Pepper 1,120</td><td class="num">560</td><td class="wrap-cell">Borders the plant nursery</td></tr>
+          <tr><td><strong>B8</strong> High Arabica I</td><td class="num">7</td><td>1270–1290 m</td><td>Gentle</td><td class="wrap-cell">Well-drained lateritic loam</td><td>100% shade</td><td class="wrap-cell">Arabica — 3,500</td><td class="wrap-cell">Pepper 1,050</td><td class="num">490</td><td class="wrap-cell">Prime Arabica block</td></tr>
+          <tr><td><strong>B9</strong> High Arabica II, Ridge</td><td class="num">9</td><td>1280–1300 m</td><td><strong>Steep</strong></td><td class="wrap-cell">Thin rocky lateritic</td><td>100% shade</td><td class="wrap-cell">Arabica — 2,450 (wide-spaced)</td><td class="wrap-cell">Pepper 900</td><td class="num">810</td><td class="wrap-cell">Wider spacing + extra shade trees for ridge erosion control</td></tr>
+          <tr><td><strong>B10</strong> Open-Sun Trial &amp; Forest Edge</td><td class="num">7 (4+3)</td><td>1285–1300 m</td><td><strong>Steep</strong></td><td class="wrap-cell">Thin lateritic / forest humus</td><td>Open-sun + buffer</td><td class="wrap-cell">Arabica 700 + Robusta 700 (open-sun)</td><td class="wrap-cell">—</td><td class="num">300 (buffer only)</td><td class="wrap-cell">Growth/yield trial vs. shaded blocks; 3 ac kept as forest buffer</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:14px;">Estate totals: <span class="tag">70 ac</span> <span class="tag">15,050 Arabica</span> <span class="tag">15,050 Robusta</span> <span class="tag">8,690 pepper vines</span> <span class="tag">1,360 areca nut</span> <span class="tag">4,800 native/shade trees</span> — 95.4% of coffee is shade-grown, 4.6% is the deliberate open-sun comparison trial in B10.</p>
+  </section>
+
+  <section id="crops">
+    <h2>Crops &amp; species</h2>
+    <div class="twocol">
+      <div>
+        <h3>Profitable crops &amp; products</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Crop / product</th><th class="wrap-cell">Role</th></tr></thead>
+            <tbody>
+              <tr><td>Arabica coffee</td><td class="wrap-cell">Premium high-elevation lots, B4–B10</td></tr>
+              <tr><td>Robusta coffee</td><td class="wrap-cell">Heat-tolerant lower-elevation lots, B1–B7, B10</td></tr>
+              <tr><td>Black pepper</td><td class="wrap-cell">Vine crop trained up shade/areca trees, 8,690 vines</td></tr>
+              <tr><td>Areca nut</td><td class="wrap-cell">Dedicated polyculture in B3 + stream-border rows</td></tr>
+              <tr><td>Honey</td><td class="wrap-cell">Limited hives on the forest-corridor edge — also an elephant deterrent</td></tr>
+              <tr><td class="wrap-cell">Jackfruit, bamboo</td><td class="wrap-cell">Minor byproduct income from otherwise-ecological shade trees</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <h3>Native shade &amp; forest trees (ecological role, not harvested)</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Species</th><th class="wrap-cell">Purpose</th></tr></thead>
+            <tbody>
+              <tr><td>Silver Oak</td><td class="wrap-cell">Standard pepper-support shade tree (naturalized, not native)</td></tr>
+              <tr><td>Dadap (Erythrina)</td><td class="wrap-cell">Nitrogen-fixing, fast primary shade</td></tr>
+              <tr><td>Wild Jack (Ainili)</td><td class="wrap-cell">Native timber, minor fruit</td></tr>
+              <tr><td>Jackfruit</td><td class="wrap-cell">Fruiting shade, minor income</td></tr>
+              <tr><td>Indian Rosewood</td><td class="wrap-cell">Native timber, long-term value</td></tr>
+              <tr><td>Indian Beech (Honge)</td><td class="wrap-cell">Nitrogen-fixing, oil-seed</td></tr>
+              <tr><td>Kindal</td><td class="wrap-cell">Native canopy shade</td></tr>
+              <tr><td>Matti</td><td class="wrap-cell">Native Western Ghats canopy tree</td></tr>
+              <tr><td>Indian Laurel (Punna)</td><td class="wrap-cell">Dense native shade</td></tr>
+              <tr><td>Cluster Fig (Atthi)</td><td class="wrap-cell">Keystone biodiversity — bird/bat forage</td></tr>
+              <tr><td>Banyan</td><td class="wrap-cell">Boundary biodiversity anchor</td></tr>
+              <tr><td>Ironwood (Nagasampige)</td><td class="wrap-cell">Dense evergreen shade</td></tr>
+              <tr><td>Hopea</td><td class="wrap-cell">Endemic Western Ghats dipterocarp</td></tr>
+              <tr><td>White Dammar (Dhoopa)</td><td class="wrap-cell">Endemic, resin-yielding</td></tr>
+              <tr><td>Wild Nutmeg</td><td class="wrap-cell">Endemic swamp-forest species</td></tr>
+              <tr><td>Wild Cinnamon</td><td class="wrap-cell">Native aromatic understorey</td></tr>
+              <tr><td>Kadamba</td><td class="wrap-cell">Fast-growing native shade</td></tr>
+              <tr><td>Jamun (Naval)</td><td class="wrap-cell">Fruiting, bird/bat forage</td></tr>
+              <tr><td>Indian Kino (Honne)</td><td class="wrap-cell">Native timber, medicinal</td></tr>
+              <tr><td>Mango</td><td class="wrap-cell">Fruiting shade, boundary rows</td></tr>
+              <tr><td>Bamboo</td><td class="wrap-cell">Stream-bank erosion control, minor income</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="loop">
+    <h2>Livestock &amp; the organic loop</h2>
+    <p>Support livestock closes a waste→input loop rather than acting as a primary profit centre — this is the backbone of the "go green" transition the Sustainability brain will eventually track.</p>
+    <div class="steps">
+      <div class="step"><div class="n">01</div><h4>Cows</h4><p>Housed in the estate's central core. Dung feeds the biogas unit and the vermicompost pits; surplus milk is for estate use.</p></div>
+      <div class="step"><div class="n">02</div><h4>Chickens</h4><p>Forage near block edges for natural insect control; eggs for estate use, informal surplus sale.</p></div>
+      <div class="step"><div class="n">03</div><h4>Biogas unit</h4><p>Converts dung + wet-processing wastewater into cooking/processing fuel.</p></div>
+      <div class="step"><div class="n">04</div><h4>Vermicompost pits</h4><p>Converts pulp waste + dung into organic fertilizer, feeding the fertilizer lab.</p></div>
+      <div class="step"><div class="n">05</div><h4>Fertilizer &amp; soil lab</h4><p>Prepares compost/vermicompost blends and runs soil pH/NPK tests per block.</p></div>
+    </div>
+  </section>
+
+  <section id="water">
+    <h2>Water &amp; irrigation</h2>
+    <p>Two streams cross the estate — Stream 1 past the Robusta blocks near the entrance, Stream 2 through the steep valley at B5 — both flowing down from the ridge toward the exit at 1200 m. A small check-dam/reservoir on Stream 1 feeds a drip/sprinkler network used only in dry-season months when rainfall drops below irrigation threshold, kept as a dry-season backup rather than routine irrigation.</p>
+  </section>
+
+  <section id="processing">
+    <h2>Processing &amp; nursery</h2>
+    <p>Processing, storage, the lab, nursery, livestock sheds, and worker housing all sit together in the estate's central core — the shortest average walk from any of the ten blocks.</p>
+    <div class="twocol">
+      <div>
+        <h3>Wet processing</h3>
+        <p>Cherry receiving &amp; sorting → water-efficient pulper with recycling settling tanks → fermentation tanks → washing channel. Pulp waste routes to the vermicompost pits; wash water routes through settling before reuse or release.</p>
+        <h3>Dry processing</h3>
+        <p>Raised sun-drying beds for clear days, plus a <strong>parabolic polyhouse dryer</strong> with retractable side curtains — closed automatically when the rain sensor trips, so drying isn't lost to Western Ghats monsoon showers. This is the first candidate for a real automated actuation in the digital twin's closed loop.</p>
+      </div>
+      <div>
+        <h3>Plant nursery</h3>
+        <p>Raises Arabica/Robusta saplings, pepper cuttings, areca saplings, and native shade-tree saplings — feeding both the estate's 50-year replanting cycle and reforestation of the forest buffer/corridor.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="corridor">
+    <h2>Wildlife corridor &amp; conflict prevention</h2>
+    <p>The estate borders reserve forest at its upper edge (near B9/B10) — real Western Ghats estates deal with elephant, wild boar, and macaque movement through exactly this kind of edge. The approach favours deterrence and early warning over confrontation:</p>
+    <ul style="color:var(--ink-soft); max-width:70ch;">
+      <li><strong>Forest buffer strip</strong> (B10's 3 ac) left uncultivated as an undisturbed passage connecting to the reserve forest, so animals don't need to cross cropped blocks.</li>
+      <li><strong>Beehive fencing</strong> along the corridor-facing boundary — elephants reliably avoid areas with active bee colonies, and it doubles as the honey line.</li>
+      <li><strong>Motion/IR early-warning sensors</strong> on the corridor edge, notifying workers to move rather than confront.</li>
+      <li><strong>Chili-rope / smoke deterrent</strong> as a traditional, low-tech secondary barrier.</li>
+      <li><strong>Thorny native hedge</strong> on the crop-facing side of the buffer as a soft physical barrier.</li>
+      <li><strong>Dusk/dawn quiet-hours protocol</strong> for workers near the corridor during known movement windows.</li>
+    </ul>
+  </section>
+
+  <section id="pest">
+    <h2>Organic pest management system</h2>
+    <p>An integrated pest management (IPM) loop — monitor, analyse, intervene organically — rather than routine spraying:</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Monitor</th><th class="wrap-cell">Signal</th><th class="wrap-cell">Organic intervention</th></tr></thead>
+        <tbody>
+          <tr><td>Pheromone traps</td><td class="wrap-cell">Coffee berry borer catch counts</td><td class="wrap-cell">Beauveria bassiana biological spray, trap density increase</td></tr>
+          <tr><td>Sticky traps</td><td class="wrap-cell">Aphid / whitefly counts</td><td class="wrap-cell">Neem-based botanical spray; encourage ladybird predators</td></tr>
+          <tr><td>Leaf-wetness + humidity sensors</td><td class="wrap-cell">Coffee leaf rust risk window</td><td class="wrap-cell">Preventive copper (Bordeaux) spray only above risk threshold</td></tr>
+          <tr><td>Chickens</td><td class="wrap-cell">Ongoing ground-insect foraging</td><td class="wrap-cell">Passive, continuous near block edges</td></tr>
+          <tr><td>Nursery quarantine</td><td class="wrap-cell">New sapling inspection</td><td class="wrap-cell">Hold before planting out — biosecurity</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:12px;">Trap counts + weather data are exactly the feed the Pest Control brain's outbreak-probability model will train on in Phase 6.</p>
+  </section>
+
+  <section id="tagging">
+    <h2>Tagging convention</h2>
+    <p>Every tree, vine, and coffee plant gets a unique tag for individual tracking: <span class="tag">&lt;Block&gt;·&lt;Species&gt;·&lt;Sequence&gt;</span>, e.g. <span class="tag">B3·RB·00147</span> for Robusta tree #147 in Block 3. Species codes: <span class="tag">RB</span> Robusta, <span class="tag">AR</span> Arabica, <span class="tag">PP</span> Pepper, <span class="tag">AN</span> Areca nut, plus a short code per native species. At ≈44,950 tagged individuals, this is a deliberately data-engineering-scale problem — big enough to force real schema and pipeline decisions, small enough to run comfortably on the free-tier cloud resources from the roadmap.</p>
+  </section>
+
+  <footer>
+    This is a draft concept for your review before we lock it into Phase 0's README and data model — tell me what to change, add, or drop.
+  </footer>
+
+</div>
+
+</body></html>
