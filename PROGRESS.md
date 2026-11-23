@@ -19,21 +19,18 @@ Read this first when resuming in a new terminal/session. For the big picture see
 - Dependencies added to `pyproject.toml`/`uv.lock`: `sqlalchemy`, `alembic`, `psycopg[binary]`, `python-dotenv`.
 - `.gitignore` fixed: `.env.*` was accidentally also matching `.env.example`; added `!.env.example` so the template file can actually be committed.
 
+**Phase 1 pipeline — done (2026-11-23)**
+- Postgres 17 (Homebrew) running; database `coffwe_dev` created.
+- `.env` (gitignored, real URL) + `.env.example` (committed template).
+- `src/coffwe/db/base.py` — `Base` with constraint naming convention, `engine`, `SessionLocal`.
+- `src/coffwe/db/models.py` — placeholder `Block` (id, code, name, area_acres).
+- Alembic initialized in top-level `migrations/`; `env.py` reads `DATABASE_URL` from `.env` and targets `Base.metadata`. `alembic.ini` keeps the dummy URL on purpose.
+- First revision `c70373fc9f50` ("create blocks table") applied; `downgrade base` ↔ `upgrade head` round-trip verified; `alembic check` clean.
+- Gotcha: Alembic-generated files need `uv run ruff check --fix .` before committing (old `Union`/`Sequence` typing trips the `UP` rules).
+
 ## Not done yet — the exact next steps
 
-Picking up Phase 1 means walking through the Alembic setup instructions already given (not yet executed):
-
-1. `brew install postgresql@17` + `brew services start postgresql@17`
-2. `createdb coffwe_dev`
-3. Create `.env` (real connection string, gitignored) and `.env.example` (template, committed) — format: `DATABASE_URL=postgresql+psycopg://<your-username>@localhost:5432/coffwe_dev`
-4. `src/coffwe/db/__init__.py` + `src/coffwe/db/base.py` (SQLAlchemy `Base`, engine, session)
-5. `src/coffwe/db/models.py` — placeholder `Block` model just to prove the pipeline (will be replaced by the real schema next)
-6. `uv run alembic init migrations` (top-level `migrations/` folder, not nested in `src/`)
-7. Edit `migrations/env.py`: inject `DATABASE_URL` from `.env`, point `target_metadata` at `Base.metadata` (remember to import `models.py` so tables actually register!)
-8. `uv run alembic revision --autogenerate -m "create blocks table"`, then `uv run alembic upgrade head`
-9. Verify with `psql coffwe_dev -c '\dt'`, prove `alembic downgrade base` / `upgrade head` round-trips cleanly
-
-**After that:** design the real schema together — `Block` (properly, from the estate-concept table), `Plant` (all 44,950 tagged individuals), `Worker`, `Asset`, `SensorStation`, `LivestockGroup`, `InventoryItem`, `HarvestBatch` — then regenerate the migration for real.
+Design the real schema together — `Block` (properly, from the estate-concept table), `Plant` (all 44,950 tagged individuals), `Worker`, `Asset`, `SensorStation`, `LivestockGroup`, `InventoryItem`, `HarvestBatch` — then regenerate the migration for real.
 
 ## Open decisions already made (don't re-ask)
 
