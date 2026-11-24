@@ -14,10 +14,12 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     Numeric,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -332,24 +334,38 @@ class AnimalType(enum.StrEnum):
 
 
 class LivestockGroup(Base):
-    """A herd, flock or hive line. Tracked as groups: individuals don't matter here."""
+    """A herd, flock or apiary.
+
+    Poultry is tracked only as a flock, so it carries a head_count. Cattle and bees are
+    tracked individually (`cattle`, `hives`), so their count is derived from those rows
+    and head_count must stay NULL -- a stored copy would drift out of sync.
+    """
 
     __tablename__ = "livestock_groups"
-    __table_args__ = (CheckConstraint("head_count >= 0", name="head_count_non_negative"),)
+    __table_args__ = (
+        CheckConstraint("head_count >= 0", name="head_count_non_negative"),
+        CheckConstraint(
+            "(animal_type = 'poultry') = (head_count IS NOT NULL)"
+            " AND (head_count IS NULL) = (count_unit IS NULL)",
+            name="count_only_for_flock_tracked",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(20), unique=True)  # "COWS"
     name: Mapped[str] = mapped_column(String(100))
     animal_type: Mapped[AnimalType] = mapped_column(str_enum(AnimalType, "animal_type"))
     site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), index=True)
-    head_count: Mapped[int]
-    count_unit: Mapped[str] = mapped_column(String(10))  # "head", "birds", "hives"
+    head_count: Mapped[int | None]
+    count_unit: Mapped[str | None] = mapped_column(String(10))  # "birds"
     purpose: Mapped[str | None] = mapped_column(Text)
 
     site: Mapped[Site] = relationship()
+    cattle: Mapped[list[Cattle]] = relationship(back_populates="group")
+    hives: Mapped[list[Hive]] = relationship(back_populates="group")
 
     def __repr__(self) -> str:
-        return f"<LivestockGroup {self.code} {self.head_count} {self.count_unit}>"
+        return f"<LivestockGroup {self.code} {self.animal_type}>"
 
 
 # --- Inventory ---------------------------------------------------------------------
@@ -501,3 +517,357 @@ class HarvestPick(Base):
 
     def __repr__(self) -> str:
         return f"<HarvestPick batch={self.batch_id} worker={self.worker_id} {self.cherry_kg} kg>"
+
+
+# --- Cattle ------------------------------------------------------------------------
+
+
+class Sex(enum.StrEnum):
+    FEMALE = "female"
+    MALE = "male"
+
+
+class CattleBreed(enum.StrEnum):
+    MALNAD_GIDDA = "malnad_gidda"  # native Western Ghats dwarf breed, ~1-3 L/day
+    JERSEY_CROSS = "jersey_cross"  # Jersey x local, ~8-12 L/day, needs more feed/care
+
+
+class CattleOrigin(enum.StrEnum):
+    BORN_ON_ESTATE = "born_on_estate"
+    PURCHASED = "purchased"
+
+
+class AnimalStatus(enum.StrEnum):
+    ACTIVE = "active"
+    SOLD = "sold"
+    DECEASED = "deceased"
+
+
+class Cattle(Base):
+    """One animal. dam/sire point back into this same table: that's the family tree."""
+
+    __tablename__ = "cattle"
+    __table_args__ = (
+        CheckConstraint("dam_id <> id AND sire_id <> id", name="not_own_parent"),
+        CheckConstraint("(status = 'active') = (left_on IS NULL)", name="left_iff_inactive"),
+        CheckConstraint("left_on IS NULL OR left_on >= born_on", name="left_after_birth"),
+        CheckConstraint(
+            "(origin = 'purchased') = (acquired_on IS NOT NULL)"
+            " AND (acquired_on IS NULL OR acquired_on >= born_on)",
+            name="purchase_dates",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(10), unique=True)  # "C01"
+    name: Mapped[str] = mapped_column(String(50))
+    sex: Mapped[Sex] = mapped_column(str_enum(Sex, "sex"))
+    breed: Mapped[CattleBreed] = mapped_column(str_enum(CattleBreed, "breed"))
+    born_on: Mapped[date]
+    origin: Mapped[CattleOrigin] = mapped_column(str_enum(CattleOrigin, "origin"))
+    acquired_on: Mapped[date | None]
+    # NULL for founders whose parents were never recorded on the estate.
+    dam_id: Mapped[int | None] = mapped_column(ForeignKey("cattle.id"), index=True)  # mother
+    sire_id: Mapped[int | None] = mapped_column(ForeignKey("cattle.id"), index=True)  # father
+    group_id: Mapped[int] = mapped_column(ForeignKey("livestock_groups.id"), index=True)
+    status: Mapped[AnimalStatus] = mapped_column(
+        str_enum(AnimalStatus, "status"), server_default=AnimalStatus.ACTIVE.value
+    )
+    left_on: Mapped[date | None]  # sold / died
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    # Self-referential: two FKs to the same table, so each relationship must say which
+    # column it uses (foreign_keys) and which side is the "parent" (remote_side).
+    dam: Mapped[Cattle | None] = relationship(
+        foreign_keys=[dam_id], remote_side="Cattle.id", back_populates="offspring_as_dam"
+    )
+    sire: Mapped[Cattle | None] = relationship(
+        foreign_keys=[sire_id], remote_side="Cattle.id", back_populates="offspring_as_sire"
+    )
+    offspring_as_dam: Mapped[list[Cattle]] = relationship(
+        foreign_keys=[dam_id], back_populates="dam"
+    )
+    offspring_as_sire: Mapped[list[Cattle]] = relationship(
+        foreign_keys=[sire_id], back_populates="sire"
+    )
+    group: Mapped[LivestockGroup] = relationship(back_populates="cattle")
+    health_events: Mapped[list[CattleHealthEvent]] = relationship(back_populates="animal")
+    milkings: Mapped[list[Milking]] = relationship(back_populates="cow")
+
+    def __repr__(self) -> str:
+        return f"<Cattle {self.code} {self.name!r} {self.sex} {self.breed}>"
+
+
+class HealthEventType(enum.StrEnum):
+    CHECKUP = "checkup"  # routine weigh + body condition + temperature
+    VACCINATION = "vaccination"  # FMD, HS, BQ, brucellosis, lumpy skin...
+    DEWORMING = "deworming"
+    ILLNESS = "illness"  # diagnosis, e.g. mastitis
+    TREATMENT = "treatment"
+    INJURY = "injury"
+
+
+class CattleHealthEvent(Base):
+    __tablename__ = "cattle_health_events"
+    __table_args__ = (
+        CheckConstraint(
+            "body_condition_score IS NULL OR body_condition_score BETWEEN 1 AND 5",
+            name="bcs_range",
+        ),
+        CheckConstraint(
+            "temperature_c IS NULL OR temperature_c BETWEEN 35 AND 43", name="temperature_range"
+        ),
+        CheckConstraint("weight_kg IS NULL OR weight_kg > 0", name="weight_positive"),
+        CheckConstraint(
+            "next_due_on IS NULL OR next_due_on > occurred_on", name="next_due_after_event"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    cattle_id: Mapped[int] = mapped_column(ForeignKey("cattle.id"), index=True)
+    occurred_on: Mapped[date]
+    event_type: Mapped[HealthEventType] = mapped_column(str_enum(HealthEventType, "event_type"))
+    subject: Mapped[str | None] = mapped_column(String(100))  # "FMD", "Mastitis (LH quarter)"
+    treatment: Mapped[str | None] = mapped_column(Text)
+    performed_by: Mapped[str | None] = mapped_column(String(100))  # vet or keeper
+    weight_kg: Mapped[Decimal | None] = mapped_column(Numeric(6, 1))
+    body_condition_score: Mapped[Decimal | None] = mapped_column(Numeric(2, 1))  # 1-5 scale
+    temperature_c: Mapped[Decimal | None] = mapped_column(Numeric(4, 1))
+    next_due_on: Mapped[date | None]  # booster / follow-up date
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    animal: Mapped[Cattle] = relationship(back_populates="health_events")
+
+    def __repr__(self) -> str:
+        return f"<CattleHealthEvent {self.event_type} {self.subject!r} on {self.occurred_on}>"
+
+
+class BreedingEventType(enum.StrEnum):
+    HEAT = "heat"  # oestrus observed
+    MATING = "mating"  # with the estate bull
+    PREGNANCY_CHECK = "pregnancy_check"
+    CALVING = "calving"  # calf_id points at the newborn's cattle row
+    ABORTION = "abortion"
+    DRY_OFF = "dry_off"  # milking stopped ahead of the next calving
+
+
+class CattleBreedingEvent(Base):
+    """A cow's reproductive history. Calving links the calf; mating links the sire."""
+
+    __tablename__ = "cattle_breeding_events"
+    __table_args__ = (
+        CheckConstraint("(event_type = 'mating') = (sire_id IS NOT NULL)", name="sire_iff_mating"),
+        CheckConstraint(
+            "(event_type = 'calving') = (calf_id IS NOT NULL)", name="calf_iff_calving"
+        ),
+        CheckConstraint(
+            "(event_type = 'pregnancy_check') = (pregnant IS NOT NULL)",
+            name="result_iff_pregnancy_check",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    cow_id: Mapped[int] = mapped_column(ForeignKey("cattle.id"), index=True)
+    occurred_on: Mapped[date]
+    event_type: Mapped[BreedingEventType] = mapped_column(str_enum(BreedingEventType, "event_type"))
+    sire_id: Mapped[int | None] = mapped_column(ForeignKey("cattle.id"))
+    calf_id: Mapped[int | None] = mapped_column(ForeignKey("cattle.id"), unique=True)
+    pregnant: Mapped[bool | None]
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    cow: Mapped[Cattle] = relationship(foreign_keys=[cow_id])
+    sire: Mapped[Cattle | None] = relationship(foreign_keys=[sire_id])
+    calf: Mapped[Cattle | None] = relationship(foreign_keys=[calf_id])
+
+    def __repr__(self) -> str:
+        return f"<CattleBreedingEvent {self.event_type} cow={self.cow_id} on {self.occurred_on}>"
+
+
+class MilkingSession(enum.StrEnum):
+    MORNING = "morning"
+    EVENING = "evening"
+
+
+class Milking(Base):
+    """One cow, one milking session. Lactation curves are built from these rows."""
+
+    __tablename__ = "milkings"
+    __table_args__ = (
+        UniqueConstraint("cattle_id", "milked_on", "session"),
+        CheckConstraint("litres > 0", name="litres_positive"),
+        CheckConstraint("fat_pct IS NULL OR fat_pct BETWEEN 0 AND 15", name="fat_pct_range"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    cattle_id: Mapped[int] = mapped_column(ForeignKey("cattle.id"), index=True)
+    milked_on: Mapped[date]
+    session: Mapped[MilkingSession] = mapped_column(str_enum(MilkingSession, "session"))
+    litres: Mapped[Decimal] = mapped_column(Numeric(5, 2))
+    fat_pct: Mapped[Decimal | None] = mapped_column(Numeric(4, 2))
+    milked_by_id: Mapped[int | None] = mapped_column(ForeignKey("workers.id"))
+
+    cow: Mapped[Cattle] = relationship(back_populates="milkings")
+
+    def __repr__(self) -> str:
+        return f"<Milking cow={self.cattle_id} {self.milked_on} {self.session} {self.litres} L>"
+
+
+# --- Bees --------------------------------------------------------------------------
+
+
+class HiveBoxType(enum.StrEnum):
+    NEWTON = "newton"  # Indian standard box for Apis cerana: 8 smaller frames
+    LANGSTROTH = "langstroth"  # larger 10-frame box for Apis mellifera (not used yet)
+
+
+class Hive(Base):
+    """The physical box. Colonies come and go; the box stays (until retired)."""
+
+    __tablename__ = "hives"
+    __table_args__ = (
+        CheckConstraint("brood_frames BETWEEN 1 AND 10", name="brood_frames_range"),
+        CheckConstraint("super_count BETWEEN 0 AND 3", name="super_count_range"),
+        CheckConstraint("retired_on IS NULL OR retired_on >= installed_on", name="retired_after"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(10), unique=True)  # "HV-01"
+    group_id: Mapped[int] = mapped_column(ForeignKey("livestock_groups.id"), index=True)
+    fence_position_m: Mapped[int]  # distance along the corridor boundary, for the map
+    box_type: Mapped[HiveBoxType] = mapped_column(str_enum(HiveBoxType, "box_type"))
+    brood_frames: Mapped[int]  # frames in the brood chamber
+    super_count: Mapped[int]  # honey chambers stacked on top
+    installed_on: Mapped[date]
+    retired_on: Mapped[date | None]  # NULL = box still in service
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    group: Mapped[LivestockGroup] = relationship(back_populates="hives")
+    colonies: Mapped[list[BeeColony]] = relationship(back_populates="hive")
+    harvests: Mapped[list[HoneyHarvest]] = relationship(back_populates="hive")
+
+    def __repr__(self) -> str:
+        return f"<Hive {self.code} {self.box_type}>"
+
+
+class ColonyOrigin(enum.StrEnum):
+    SWARM_CAPTURE = "swarm_capture"
+    SPLIT = "split"  # divided from another estate colony
+    PURCHASED = "purchased"
+
+
+class ColonyEndReason(enum.StrEnum):
+    ABSCONDED = "absconded"  # whole colony leaves -- common in Apis cerana
+    COLLAPSED = "collapsed"  # died out, e.g. Thai sacbrood virus
+    MERGED = "merged"  # combined into another colony
+
+
+class BeeColony(Base):
+    """A colony's occupancy of one hive box, from establishment to its end (if any)."""
+
+    __tablename__ = "bee_colonies"
+    __table_args__ = (
+        CheckConstraint("(ended_on IS NULL) = (end_reason IS NULL)", name="end_reason_iff_ended"),
+        CheckConstraint("ended_on IS NULL OR ended_on >= established_on", name="ended_after"),
+        # At most one *living* colony per box: a partial unique index (WHERE ended_on IS
+        # NULL) -- ended colonies don't count, so a box can have any number of those.
+        Index(
+            "uq_bee_colonies_one_active_per_hive",
+            "hive_id",
+            unique=True,
+            postgresql_where=text("ended_on IS NULL"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    hive_id: Mapped[int] = mapped_column(ForeignKey("hives.id"), index=True)
+    species_name: Mapped[str] = mapped_column(String(50), server_default="Apis cerana indica")
+    origin: Mapped[ColonyOrigin] = mapped_column(str_enum(ColonyOrigin, "origin"))
+    established_on: Mapped[date]
+    ended_on: Mapped[date | None]
+    end_reason: Mapped[ColonyEndReason | None] = mapped_column(
+        str_enum(ColonyEndReason, "end_reason")
+    )
+
+    hive: Mapped[Hive] = relationship(back_populates="colonies")
+    queens: Mapped[list[Queen]] = relationship(back_populates="colony")
+
+    def __repr__(self) -> str:
+        return f"<BeeColony hive={self.hive_id} since {self.established_on}>"
+
+
+class QueenOrigin(enum.StrEnum):
+    ORIGINAL = "original"  # came with the colony
+    SUPERSEDURE = "supersedure"  # colony raised its own replacement
+    REQUEENED = "requeened"  # beekeeper introduced a new queen
+
+
+class Queen(Base):
+    __tablename__ = "queens"
+    __table_args__ = (
+        CheckConstraint(
+            "replaced_on IS NULL OR replaced_on >= introduced_on", name="replaced_after"
+        ),
+        Index(
+            "uq_queens_one_reigning_per_colony",
+            "colony_id",
+            unique=True,
+            postgresql_where=text("replaced_on IS NULL"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    colony_id: Mapped[int] = mapped_column(ForeignKey("bee_colonies.id"), index=True)
+    origin: Mapped[QueenOrigin] = mapped_column(str_enum(QueenOrigin, "origin"))
+    introduced_on: Mapped[date]
+    replaced_on: Mapped[date | None]  # NULL = still reigning (or colony ended with her)
+
+    colony: Mapped[BeeColony] = relationship(back_populates="queens")
+
+    def __repr__(self) -> str:
+        return f"<Queen colony={self.colony_id} since {self.introduced_on}>"
+
+
+class NectarFlow(Base):
+    """A flowering season that bees forage on, e.g. the coffee-blossom flow."""
+
+    __tablename__ = "nectar_flows"
+    __table_args__ = (CheckConstraint("ends_on > starts_on", name="ends_after_starts"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(20), unique=True)  # "2026-COFFEE"
+    name: Mapped[str] = mapped_column(String(100))
+    flora: Mapped[str | None] = mapped_column(Text)
+    starts_on: Mapped[date]
+    ends_on: Mapped[date]
+
+    def __repr__(self) -> str:
+        return f"<NectarFlow {self.code} {self.starts_on}..{self.ends_on}>"
+
+
+class HoneyHarvest(Base):
+    __tablename__ = "honey_harvests"
+    __table_args__ = (
+        UniqueConstraint("hive_id", "harvested_on"),
+        CheckConstraint("honey_kg > 0", name="honey_kg_positive"),
+        CheckConstraint("frames_extracted > 0", name="frames_positive"),
+        CheckConstraint(
+            "moisture_pct IS NULL OR moisture_pct BETWEEN 10 AND 30", name="moisture_range"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    hive_id: Mapped[int] = mapped_column(ForeignKey("hives.id"), index=True)
+    flow_id: Mapped[int | None] = mapped_column(ForeignKey("nectar_flows.id"), index=True)
+    harvested_on: Mapped[date]
+    frames_extracted: Mapped[int]
+    honey_kg: Mapped[Decimal] = mapped_column(Numeric(5, 2))
+    # Apis cerana honey runs wetter than mellifera; >~22% risks fermentation.
+    moisture_pct: Mapped[Decimal | None] = mapped_column(Numeric(3, 1))
+    harvested_by_id: Mapped[int | None] = mapped_column(ForeignKey("workers.id"))
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    hive: Mapped[Hive] = relationship(back_populates="harvests")
+    flow: Mapped[NectarFlow | None] = relationship()
+
+    def __repr__(self) -> str:
+        return f"<HoneyHarvest hive={self.hive_id} {self.harvested_on} {self.honey_kg} kg>"

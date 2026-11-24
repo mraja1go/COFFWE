@@ -1,6 +1,6 @@
 # COFFWE — Estate Concept
 
-Status: **finalized** (v1.0 locked 2026-11-10; v1.1 2026-11-24 — ASCII tag format, species codes, shade-tree mix; v1.2 2026-11-24 — Estate Lab, resource counts) — this is the ground truth the simulator, data model, and every AI brain are built against. Changing any of these facts later is a deliberate decision, not a drive-by edit.
+Status: **finalized** (v1.0 locked 2026-11-10; v1.1 2026-11-24 — ASCII tag format, species codes, shade-tree mix; v1.2 2026-11-24 — Estate Lab, resource counts; v1.3 2026-11-24 — individual cattle and hives) — this is the ground truth the simulator, data model, and every AI brain are built against. Changing any of these facts later is a deliberate decision, not a drive-by edit.
 
 COFFWE is a fully imaginary, 50-year-old shade coffee estate in the Western Ghats highlands, elevation 1200–1300 m. It grows Arabica and Robusta in equal numbers across 10 unequal blocks, intercropped with pepper and areca nut, surrounded by native forest shade trees, and run with an explicit organic/"go green" transition in mind.
 
@@ -134,11 +134,45 @@ The original concept described these qualitatively; v1.2 fixes concrete numbers 
 | Sites | 23 named places: the 10 blocks, 10 estate-core facilities (wet processing yard, drying yard, storage warehouse, **Estate Lab**, compost & biogas unit, nursery, cow shed, chicken coop, worker housing, workshop & garage), Stream 1 reservoir, Stream 2, and the forest corridor boundary |
 | Estate Lab | All-purpose: organic fertilizer preparation, soil testing, and research (not a soil-only lab) |
 | Workforce | 15 permanent (1 manager, 1 supervisor, 1 lab technician, 2 processing operators, 1 mechanic, 1 nursery keeper, 1 livestock keeper, 1 driver, 1 watchman, 5 field workers; 7 housed on-site) + 45 seasonal pickers, contracted 1 Nov – 28 Feb. Names are fictional. |
-| Livestock | 6 cows, 60 free-range layer hens, 24 beehives along the corridor fence |
+| Livestock | 12 cattle (see v1.3 below), 60 free-range layer hens (tracked as a flock), 24 Newton-box beehives along the corridor fence |
 | Sensor fleet | 18 stations / 65 sensors: 1 estate weather mast, a field station in every block (soil moisture & temperature, leaf wetness, air temperature & humidity), drying-yard rain sensor, reservoir level, Stream 2 flow, 4 corridor motion/IR sensors |
 | Assets | 41 machines & equipment, incl. pulper, fermentation tanks, polyhouse dryer, biogas digester, 4 vermicompost pits, generator, solar array, pickup, power tiller, lab kit. **Actuatable** (Phase 8 closed loop): the polyhouse curtain motor, the irrigation pump, and one zone valve per block |
 | Inventory | 23 items (organic + legacy fertilizer, biocontrols, packaging, fuel, spares, nursery stock, feed), opening balances dated 1 Nov 2026. Stock on hand is the sum of an append-only movement ledger. |
 | Harvest | A batch = one crop from one block on one day; per-picker weights recorded separately. Batches are events, so the Phase 2 simulator generates them — none are seeded. |
+
+## Cattle herd (v1.3)
+
+A **mixed herd** with **one estate bull**: native Malnad Gidda (the Western Ghats dwarf breed — hardy, low-input, ~1–3 L/day, prized for dung in organic farming) plus two Jersey crossbreds (~8–12 L/day, more feed and vet care). Every animal is an individual with a full pedigree — mother and father point back into the same `cattle` table.
+
+| Code | Name | Sex | Breed | Born | Mother × Father | Status (Nov 2026) |
+|---|---|---|---|---|---|---|
+| C01 | Bhima | M | Malnad Gidda | 2020-03 | — (purchased 2021) | Estate breeding bull |
+| C02 | Kaveri | F | Malnad Gidda | 2017-05 | — (founder) | Lactating, calved Jun 2026 |
+| C03 | Ganga | F | Malnad Gidda | 2018-02 | — (founder) | Dry; pregnant (mated Sep 2026) |
+| C04 | Tunga | F | Malnad Gidda | 2021-09 | Kaveri × unrecorded | Lactating, calved Aug 2026; in heat |
+| C05 | Lakshmi | F | Jersey cross | 2018-11 | — (purchased 2021) | Dry; due mid-Dec 2026 |
+| C06 | Gowri | F | Jersey cross | 2019-08 | — (purchased 2021) | Lactating, calved Sep 2026; recovered from mastitis |
+| C07 | Nandini | F | Malnad Gidda | 2023-10 | Ganga × Bhima | Heifer; first service failed, in heat again |
+| C08 | Hemavathi | F | Jersey cross | 2024-01 | Lakshmi × Bhima | Heifer |
+| C09 | Chinna | M | Malnad Gidda | 2025-11 | Ganga × Bhima | Yearling bull calf |
+| C10 | Shyama | F | Malnad Gidda | 2026-06 | Kaveri × Bhima | Calf |
+| C11 | Basava | M | Malnad Gidda | 2026-08 | Tunga × Bhima | Calf |
+| C12 | Mallige | F | Jersey cross | 2026-09 | Gowri × Bhima | Calf |
+
+Recorded history: LSD, HS and FMD vaccinations (animals ≥4 months old, with next-due dates), brucellosis for the eligible heifer calf, quarterly deworming, Gowri's mastitis episode (illness → treatment → follow-up), a 1 Nov 2026 herd checkup (weight, body condition 1–5, temperature), and every mating → pregnancy check → calving behind each calf. Milkings (per cow, morning/evening) start empty — the simulator generates them.
+
+## Apiary (v1.3)
+
+**24 Newton boxes** of native *Apis cerana indica* (the Indian hive bee) along the corridor fence, 40 m apart — 8 brood frames each, plus one honey super while occupied. Cerana is gentle, forest-adapted and suits the elephant-deterrent fence, but it **absconds** readily and is vulnerable to **Thai sacbrood virus**; yields are ~5–8 kg/hive/year.
+
+| | |
+|---|---|
+| Boxes | HV-01–12 installed Nov 2022 (captured swarms), HV-13–20 Jan 2024 (purchased colonies), HV-21–24 Sep 2025 (splits) |
+| Colony history | HV-05 absconded Jun 2024, re-occupied by a swarm Oct 2024 · HV-17 absconded Jul 2025, re-stocked with a split Jan 2026 · HV-22 collapsed from sacbrood Jul 2026, box empty |
+| Queens | Every colony starts with its original queen; the 2022 colonies superseded in Mar 2024, even-numbered ones were requeened Feb 2026, every third 2024 colony requeened Dec 2025 |
+| Nectar flows | Post-monsoon forest (Oct–Nov) · Coffee blossom (late Feb – early Apr, the main flow) · Summer forest (mid-Apr – May: honge, jamun, wild jack) |
+| Honey records | From the 2025 post-monsoon flow: one harvest per hive per flow, 3–4 frames extracted; moisture 20–24% (cerana honey runs wet) |
+| Durations | All four in the `hive_overview` view: hive age, colony occupancy, queen age, and harvest-cycle length (average gap between a hive's harvests) |
 
 ---
 

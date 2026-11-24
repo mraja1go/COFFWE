@@ -7,7 +7,7 @@ turns exactly this data into rows.
 
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 # --- Species -----------------------------------------------------------------------
@@ -395,17 +395,17 @@ class LivestockSpec:
     name: str
     animal_type: str
     site_code: str
-    head_count: int
-    count_unit: str
+    head_count: int | None  # only for flock-tracked poultry; cattle/bees are individuals
+    count_unit: str | None
     purpose: str
 
 
 LIVESTOCK: list[LivestockSpec] = [
-    LivestockSpec("COWS", "Cow herd", "cattle", "COWSHED", 6, "head",
+    LivestockSpec("COWS", "Cattle herd", "cattle", "COWSHED", None, None,
                   "Dung for biogas + vermicompost; milk for estate use"),
     LivestockSpec("HENS", "Free-range layer flock", "poultry", "COOP", 60, "birds",
                   "Ground-insect control near block edges; eggs for estate use"),
-    LivestockSpec("HIVES", "Corridor beehive fence", "bees", "CORRIDOR", 24, "hives",
+    LivestockSpec("HIVES", "Corridor beehive fence", "bees", "CORRIDOR", None, None,
                   "Elephant deterrent along the forest boundary; honey"),
 ]  # fmt: skip
 
@@ -450,3 +450,382 @@ INVENTORY_ITEMS: list[InventoryItemSpec] = [
     InventoryItemSpec("CATTLE-FEED", "Cattle feed", "feed", "kg", "COWSHED", D(100), D(450)),
     InventoryItemSpec("CHICKEN-FEED", "Chicken feed", "feed", "kg", "COOP", D(50), D(180)),
 ]  # fmt: skip
+
+
+# ===================================================================================
+# Livestock detail (v1.3, 2026-11-24): individual cattle with pedigree and health,
+# and individual hives with colonies, queens, nectar flows and honey harvests.
+# History is seeded from when estate records "start" so durations are meaningful;
+# from 1 Nov 2026 on, new events (milkings, harvests...) are the simulator's job.
+# ===================================================================================
+
+VET = "Visiting veterinary officer"
+KEEPER = "Livestock keeper (W008)"
+BEEKEEPER_CODE = "W008"  # the permanent livestock keeper also tends the hives
+
+# --- Cattle ------------------------------------------------------------------------
+# Mixed herd: native Malnad Gidda + Jersey crossbreds, one estate bull (Bhima, C01)
+# siring every calf since he arrived. Calf of a Jersey-cross dam stays "jersey_cross".
+
+
+@dataclass(frozen=True)
+class CattleSpec:
+    code: str
+    name: str
+    sex: str
+    breed: str
+    born_on: date
+    origin: str
+    acquired_on: date | None = None
+    dam_code: str | None = None
+    sire_code: str | None = None
+    notes: str | None = None
+
+
+MG, JX = "malnad_gidda", "jersey_cross"
+CATTLE: list[CattleSpec] = [
+    CattleSpec("C01", "Bhima", "male", MG, date(2020, 3, 10), "purchased", date(2021, 6, 15), notes="Estate breeding bull"),
+    CattleSpec("C02", "Kaveri", "female", MG, date(2017, 5, 14), "born_on_estate", notes="Founder; parents not recorded"),
+    CattleSpec("C03", "Ganga", "female", MG, date(2018, 2, 8), "born_on_estate", notes="Founder; parents not recorded"),
+    CattleSpec("C04", "Tunga", "female", MG, date(2021, 9, 3), "born_on_estate", dam_code="C02", notes="Sire not recorded (before Bhima)"),
+    CattleSpec("C05", "Lakshmi", "female", JX, date(2018, 11, 22), "purchased", date(2021, 2, 1)),
+    CattleSpec("C06", "Gowri", "female", JX, date(2019, 8, 30), "purchased", date(2021, 2, 1)),
+    CattleSpec("C07", "Nandini", "female", MG, date(2023, 10, 2), "born_on_estate", dam_code="C03", sire_code="C01"),
+    CattleSpec("C08", "Hemavathi", "female", JX, date(2024, 1, 15), "born_on_estate", dam_code="C05", sire_code="C01"),
+    CattleSpec("C09", "Chinna", "male", MG, date(2025, 11, 28), "born_on_estate", dam_code="C03", sire_code="C01"),
+    CattleSpec("C10", "Shyama", "female", MG, date(2026, 6, 20), "born_on_estate", dam_code="C02", sire_code="C01"),
+    CattleSpec("C11", "Basava", "male", MG, date(2026, 8, 5), "born_on_estate", dam_code="C04", sire_code="C01"),
+    CattleSpec("C12", "Mallige", "female", JX, date(2026, 9, 12), "born_on_estate", dam_code="C06", sire_code="C01"),
+]  # fmt: skip
+
+GESTATION_DAYS = 283  # cattle average
+
+
+@dataclass(frozen=True)
+class HealthEventSpec:
+    cattle_code: str
+    occurred_on: date
+    event_type: str
+    subject: str | None = None
+    treatment: str | None = None
+    performed_by: str | None = None
+    weight_kg: Decimal | None = None
+    body_condition_score: Decimal | None = None
+    temperature_c: Decimal | None = None
+    next_due_on: date | None = None
+    notes: str | None = None
+
+
+# 1 Nov 2026 herd checkup: (weight kg, body condition score 1-5, temperature degC)
+CHECKUP_2026_11 = {
+    "C01": (280, "3.0", "38.6"), "C02": (175, "3.0", "38.5"), "C03": (168, "3.0", "38.4"),
+    "C04": (160, "2.75", "38.7"), "C05": (340, "3.5", "38.5"), "C06": (325, "2.5", "38.6"),
+    "C07": (140, "3.0", "38.6"), "C08": (230, "3.25", "38.5"), "C09": (95, "3.0", "38.8"),
+    "C10": (55, "3.0", "38.9"), "C11": (48, "3.0", "39.0"), "C12": (52, "3.0", "38.9"),
+}  # fmt: skip
+
+# (vaccine, given on, next due, min age in days on the day)
+VACCINATIONS = [
+    ("Lumpy skin disease (LSD)", date(2026, 4, 15), date(2027, 4, 15), 120),
+    ("Haemorrhagic septicaemia (HS)", date(2026, 5, 20), date(2027, 5, 20), 120),
+    ("Foot-and-mouth disease (FMD)", date(2026, 9, 10), date(2027, 3, 10), 120),
+]
+
+
+def cattle_health_specs() -> list[HealthEventSpec]:
+    by_code = {c.code: c for c in CATTLE}
+    events: list[HealthEventSpec] = []
+    for vaccine, given_on, due_on, min_age in VACCINATIONS:
+        for c in CATTLE:
+            if (given_on - c.born_on).days >= min_age:
+                events.append(
+                    HealthEventSpec(
+                        c.code,
+                        given_on,
+                        "vaccination",
+                        vaccine,
+                        performed_by=VET,
+                        next_due_on=due_on,
+                    )
+                )
+    # Brucellosis: once in life, female calves at 4-8 months.
+    for c in CATTLE:
+        if c.sex == "female" and c.born_on >= date(2026, 1, 1):
+            vax_on = date(2026, 11, 5)
+            if 120 <= (vax_on - c.born_on).days <= 240:
+                events.append(
+                    HealthEventSpec(
+                        c.code, vax_on, "vaccination", "Brucellosis (S19)", performed_by=VET
+                    )
+                )
+    for c in CATTLE:  # whole-herd deworming, quarterly
+        events.append(
+            HealthEventSpec(
+                c.code,
+                date(2026, 10, 1),
+                "deworming",
+                "Albendazole",
+                performed_by=KEEPER,
+                next_due_on=date(2027, 1, 1),
+            )
+        )
+    # Gowri's mastitis episode -- shows illness -> treatment -> follow-up.
+    events += [
+        HealthEventSpec(
+            "C06",
+            date(2026, 10, 18),
+            "illness",
+            "Clinical mastitis (left hind quarter)",
+            performed_by=VET,
+            temperature_c=D("39.6"),
+            notes="Clots in milk, swollen quarter; milk discarded",
+        ),
+        HealthEventSpec(
+            "C06",
+            date(2026, 10, 18),
+            "treatment",
+            "Clinical mastitis (left hind quarter)",
+            treatment="Intramammary antibiotic 3 days + anti-inflammatory; 5-day milk withdrawal",
+            performed_by=VET,
+            next_due_on=date(2026, 10, 25),
+        ),
+        HealthEventSpec(
+            "C06",
+            date(2026, 10, 25),
+            "checkup",
+            "Mastitis follow-up",
+            performed_by=VET,
+            temperature_c=D("38.6"),
+            notes="Resolved",
+        ),
+    ]
+    for code, (kg, bcs, temp) in CHECKUP_2026_11.items():
+        assert code in by_code
+        events.append(
+            HealthEventSpec(
+                code,
+                date(2026, 11, 1),
+                "checkup",
+                "Monthly herd checkup",
+                performed_by=KEEPER,
+                weight_kg=D(kg),
+                body_condition_score=D(bcs),
+                temperature_c=D(temp),
+            )
+        )
+    return events
+
+
+@dataclass(frozen=True)
+class BreedingEventSpec:
+    cow_code: str
+    occurred_on: date
+    event_type: str
+    sire_code: str | None = None
+    calf_code: str | None = None
+    pregnant: bool | None = None
+    notes: str | None = None
+
+
+def cattle_breeding_specs() -> list[BreedingEventSpec]:
+    events: list[BreedingEventSpec] = []
+    # Every recorded calf: mating (if sire known) -> positive pregnancy check -> calving.
+    for calf in CATTLE:
+        if calf.dam_code is None:
+            continue
+        if calf.sire_code:
+            mated_on = calf.born_on - timedelta(days=GESTATION_DAYS)
+            events.append(
+                BreedingEventSpec(calf.dam_code, mated_on, "mating", sire_code=calf.sire_code)
+            )
+            events.append(
+                BreedingEventSpec(
+                    calf.dam_code, mated_on + timedelta(days=60), "pregnancy_check", pregnant=True
+                )
+            )
+        events.append(
+            BreedingEventSpec(calf.dam_code, calf.born_on, "calving", calf_code=calf.code)
+        )
+    # Where the herd stands now (late Nov 2026):
+    events += [
+        BreedingEventSpec("C05", date(2026, 3, 4), "heat"),
+        BreedingEventSpec("C05", date(2026, 3, 5), "mating", sire_code="C01"),
+        BreedingEventSpec("C05", date(2026, 5, 4), "pregnancy_check", pregnant=True),
+        BreedingEventSpec("C05", date(2026, 10, 14), "dry_off", notes="Due mid-Dec 2026"),
+        BreedingEventSpec("C03", date(2026, 9, 1), "dry_off", notes="End of lactation"),
+        BreedingEventSpec("C03", date(2026, 9, 20), "mating", sire_code="C01"),
+        BreedingEventSpec("C03", date(2026, 11, 19), "pregnancy_check", pregnant=True),
+        BreedingEventSpec(
+            "C07", date(2026, 7, 1), "mating", sire_code="C01", notes="First service"
+        ),
+        BreedingEventSpec("C07", date(2026, 8, 30), "pregnancy_check", pregnant=False),
+        BreedingEventSpec("C07", date(2026, 11, 15), "heat"),
+        BreedingEventSpec("C04", date(2026, 11, 10), "heat", notes="First heat after calving"),
+    ]
+    return sorted(events, key=lambda e: (e.occurred_on, e.cow_code))
+
+
+# --- Bees --------------------------------------------------------------------------
+# 24 Newton boxes of native Apis cerana indica along the corridor fence, 40 m apart.
+
+HIVE_COUNT = 24
+HIVE_SPACING_M = 40
+
+
+@dataclass(frozen=True)
+class HiveSpec:
+    code: str
+    fence_position_m: int
+    box_type: str
+    brood_frames: int
+    super_count: int
+    installed_on: date
+
+
+@dataclass(frozen=True)
+class ColonySpec:
+    hive_code: str
+    origin: str
+    established_on: date
+    ended_on: date | None = None
+    end_reason: str | None = None
+
+
+@dataclass(frozen=True)
+class QueenSpec:
+    hive_code: str
+    colony_established_on: date  # identifies the colony within its hive
+    origin: str
+    introduced_on: date
+    replaced_on: date | None = None
+
+
+def _hive_code(n: int) -> str:
+    return f"HV-{n:02d}"
+
+
+def _installed_on(n: int) -> date:
+    if n <= 12:
+        return date(2022, 11, 15)  # first fence line
+    if n <= 20:
+        return date(2024, 1, 20)  # extension
+    return date(2025, 9, 10)  # newest boxes, stocked with splits
+
+
+def colony_specs() -> list[ColonySpec]:
+    colonies = []
+    for n in range(1, HIVE_COUNT + 1):
+        code, installed = _hive_code(n), _installed_on(n)
+        origin = "swarm_capture" if n <= 12 else "purchased" if n <= 20 else "split"
+        if n == 5:  # absconded mid-2024, re-occupied by a captured swarm
+            colonies += [
+                ColonySpec(code, origin, installed, date(2024, 6, 12), "absconded"),
+                ColonySpec(code, "swarm_capture", date(2024, 10, 3)),
+            ]
+        elif n == 17:  # absconded in the 2025 monsoon, re-stocked with a split
+            colonies += [
+                ColonySpec(code, origin, installed, date(2025, 7, 20), "absconded"),
+                ColonySpec(code, "split", date(2026, 1, 15)),
+            ]
+        elif n == 22:  # lost to Thai sacbrood virus; box currently empty
+            colonies.append(ColonySpec(code, origin, installed, date(2026, 7, 5), "collapsed"))
+        else:
+            colonies.append(ColonySpec(code, origin, installed))
+    return colonies
+
+
+def hive_specs() -> list[HiveSpec]:
+    occupied = {c.hive_code for c in colony_specs() if c.ended_on is None}
+    return [
+        HiveSpec(_hive_code(n), n * HIVE_SPACING_M, "newton", 8,
+                 1 if _hive_code(n) in occupied else 0, _installed_on(n))
+        for n in range(1, HIVE_COUNT + 1)
+    ]  # fmt: skip
+
+
+def colony_alive_on(colony: ColonySpec, day: date) -> bool:
+    return colony.established_on < day and (colony.ended_on is None or day < colony.ended_on)
+
+
+def queen_specs() -> list[QueenSpec]:
+    """Original queen per colony; older colonies superseded or were requeened."""
+    queens = []
+    for c in colony_specs():
+        n = int(c.hive_code[3:])
+        reign_start, origin = c.established_on, "original"
+        changes: list[tuple[date, str]] = []
+        if c.established_on < date(2024, 1, 1) and colony_alive_on(c, date(2024, 3, 1)):
+            changes.append((date(2024, 3, 1 + n % 20), "supersedure"))
+            if n % 2 == 0 and colony_alive_on(c, date(2026, 2, 1)):
+                changes.append((date(2026, 2, 1 + n % 20), "requeened"))
+        elif (
+            c.established_on == date(2024, 1, 20)
+            and n % 3 == 0
+            and colony_alive_on(c, date(2025, 12, 1))
+        ):
+            changes.append((date(2025, 12, 1 + n % 20), "requeened"))
+        for changed_on, new_origin in changes:
+            queens.append(QueenSpec(c.hive_code, c.established_on, origin, reign_start, changed_on))
+            reign_start, origin = changed_on, new_origin
+        queens.append(QueenSpec(c.hive_code, c.established_on, origin, reign_start))
+    return queens
+
+
+@dataclass(frozen=True)
+class NectarFlowSpec:
+    code: str
+    name: str
+    flora: str
+    starts_on: date
+    ends_on: date
+
+
+NECTAR_FLOWS: list[NectarFlowSpec] = [
+    NectarFlowSpec("2025-POSTMON", "Post-monsoon forest flow", "Forest shrubs, climbers and Kadamba after the monsoon", date(2025, 10, 1), date(2025, 11, 30)),
+    NectarFlowSpec("2026-COFFEE", "Coffee blossom flow", "Arabica/Robusta blossom after the blossom showers; silver oak", date(2026, 2, 20), date(2026, 4, 10)),
+    NectarFlowSpec("2026-SUMMER", "Summer forest flow", "Honge (Pongamia), jamun, wild jack and forest trees", date(2026, 4, 11), date(2026, 5, 31)),
+    NectarFlowSpec("2026-POSTMON", "Post-monsoon forest flow", "Forest shrubs, climbers and Kadamba after the monsoon", date(2026, 10, 1), date(2026, 11, 30)),
+    NectarFlowSpec("2027-COFFEE", "Coffee blossom flow (forecast)", "Arabica/Robusta blossom after the blossom showers; silver oak", date(2027, 2, 20), date(2027, 4, 10)),
+]  # fmt: skip
+
+# flow -> (first harvest day, base honey kg per hive, frames extracted, base moisture %)
+# Honey records start with the 2025 post-monsoon flow.
+HARVEST_PLAN: dict[str, tuple[date, Decimal, int, Decimal]] = {
+    "2025-POSTMON": (date(2025, 11, 20), D("1.2"), 3, D("22.5")),
+    "2026-COFFEE": (date(2026, 3, 28), D("2.8"), 4, D("20.5")),
+    "2026-SUMMER": (date(2026, 5, 22), D("1.8"), 3, D("20.0")),
+    "2026-POSTMON": (date(2026, 11, 14), D("1.2"), 3, D("22.5")),
+}
+MIN_COLONY_AGE_FOR_HARVEST_DAYS = 60
+
+
+@dataclass(frozen=True)
+class HoneyHarvestSpec:
+    hive_code: str
+    flow_code: str
+    harvested_on: date
+    frames_extracted: int
+    honey_kg: Decimal
+    moisture_pct: Decimal
+    harvested_by_code: str = BEEKEEPER_CODE
+
+
+def honey_harvest_specs() -> list[HoneyHarvestSpec]:
+    """One harvest per hive per flow, if a colony old enough was living in the box."""
+    colonies = colony_specs()
+    harvests = []
+    for flow_code, (first_day, base_kg, frames, base_moisture) in HARVEST_PLAN.items():
+        for n in range(1, HIVE_COUNT + 1):
+            code = _hive_code(n)
+            on = first_day + timedelta(days=n % 7)  # beekeeper works along the fence
+            alive = any(
+                c.hive_code == code
+                and (on - c.established_on).days >= MIN_COLONY_AGE_FOR_HARVEST_DAYS
+                and (c.ended_on is None or on < c.ended_on)
+                for c in colonies
+            )
+            if alive:
+                kg = (base_kg * (D("0.8") + D(n % 5) / 10)).quantize(D("0.01"))
+                moisture = base_moisture + D(n % 4) / 2
+                harvests.append(HoneyHarvestSpec(code, flow_code, on, frames, kg, moisture))
+    return harvests

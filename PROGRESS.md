@@ -45,6 +45,16 @@ Read this first when resuming in a new terminal/session. For the big picture see
 - Concept numbers chosen for these tables are recorded in `docs/estate-concept.md` v1.2 ("Resources & sites").
 - Known app-level rule (not a DB constraint): harvest batches should only reference crop species, not shade trees.
 
+**Phase 1 addition — livestock detail (2026-11-24)**
+- 3 more migrations (12 total): `ab8513646969` cattle, `8f7a93e1bf21` bees, `d4660c7330ef` livestock-group counts. 22 tables + 1 view.
+- **Cattle:** `cattle` (individuals; `dam_id`/`sire_id` self-reference = family tree), `cattle_health_events` (checkups w/ weight/BCS/temp, vaccinations w/ next-due, deworming, illness, treatment), `cattle_breeding_events` (heat, mating w/ sire, pregnancy check, calving w/ calf, dry-off), `milkings` (per cow per morning/evening). Mixed herd (Malnad Gidda + Jersey cross), estate bull Bhima (C01).
+- **Bees:** `hives` (Newton box: fence position, frames, supers), `bee_colonies` (occupancy, absconding/collapse), `queens` (reigns), `nectar_flows` (seasons), `honey_harvests`. Native *Apis cerana indica*. `hive_overview` **view** gives hive age, occupancy, queen age, harvest-cycle length.
+- `livestock_groups.head_count` now only for poultry; cattle/bee counts derive from individual rows (data migration both ways — the downgrade rebuilds counts from `cattle`/`hives`).
+- Lessons this round: autogenerate put everything in one revision → split by hand; data migrations need ordering care (the count change sits *on top* so its downgrade can still see both tables); views are hand-written (`op.execute`); partial unique indexes enforce "one living colony per box" / "one reigning queen per colony".
+- Verified: 11 new constraint probes rejected; family-tree recursive query, herd status, hive durations, per-flow honey all query correctly; all 12 migrations round-trip; 39 tests pass.
+- Caveat: `hive_overview` uses `CURRENT_DATE` (real clock); the simulator may need an as-of date.
+- Detail recorded in `docs/estate-concept.md` v1.3 ("Cattle herd", "Apiary").
+
 ## Not done yet — the exact next steps
 
 **Phase 2 — simulation engine**, starting with its own short planning pass: what the simulator generates first (weather → soil moisture → plant/pest state → worker activity → harvest batches + inventory movements), time-step size, and how it writes into the Phase 1 tables.
