@@ -1,4 +1,4 @@
-# Progress checkpoint — 2026-11-18
+# Progress checkpoint — 2026-11-24
 
 Read this first when resuming in a new terminal/session. For the big picture see `README.md`; for the full original roadmap see `docs/plan-phase-0.md`; for the estate itself see `docs/estate-concept.md`.
 
@@ -26,11 +26,28 @@ Read this first when resuming in a new terminal/session. For the big picture see
 - `src/coffwe/db/models.py` — placeholder `Block` (id, code, name, area_acres).
 - Alembic initialized in top-level `migrations/`; `env.py` reads `DATABASE_URL` from `.env` and targets `Base.metadata`. `alembic.ini` keeps the dummy URL on purpose.
 - First revision `c70373fc9f50` ("create blocks table") applied; `downgrade base` ↔ `upgrade head` round-trip verified; `alembic check` clean.
-- Gotcha: Alembic-generated files need `uv run ruff check --fix .` before committing (old `Union`/`Sequence` typing trips the `UP` rules).
+- `alembic.ini` post-write hooks run `ruff check --fix` + `ruff format` on every new revision automatically.
+
+**Phase 1 estate core — done (2026-11-24)**
+- `src/coffwe/estate_data.py` — the estate concept as pure Python data (blocks, 25 species, shade-tree weights, tag generator). No DB dependency; `tests/test_estate_data.py` checks every total against the concept doc.
+- `src/coffwe/db/models.py` — real `Block` (elevation range, slope, soil, shade %, buffer acres, notes), `Species` (code, names, category), `Plant` (tag, block, species, sequence, status). Enums are VARCHAR + CHECK, not native Postgres ENUMs (easier to alter later).
+- Revision `dfcbd96746b4` — CHECK constraints on the existing `blocks` table were **added by hand** (autogenerate can't detect them). Round-trip from `base` verified.
+- `uv run python -m coffwe.seed` — truncates and reloads 10 blocks / 25 species / 44,950 plants in ~1.5 s; idempotent.
+- Tag format changed to `B3-RB-00147` (estate-concept v1.1).
+- Caveat: `downgrade -1` then `upgrade head` fails while blocks has rows (new NOT NULL columns). Recover with `alembic downgrade base && alembic upgrade head && python -m coffwe.seed`.
+
+**Phase 1 full schema — done (2026-11-24). Phase 1 complete.**
+- 13 tables across 9 migrations (one per table group, each reviewed): `sites` → `workers` → `assets` → `sensor_stations` + `sensors` → `livestock_groups` → `inventory_items` + `inventory_movements` → `harvest_batches` + `harvest_picks`.
+- Decisions: a `sites` table is the single "where" for everything; every person is a `workers` row (15 permanent + 45 seasonal); inventory is an append-only ledger (stock = SUM of movements; sign enforced per reason); sensors are stations → per-measurement sensors with valid physical ranges; harvest batch = one crop × block × day, with per-picker `harvest_picks`.
+- The lab is the **Estate Lab** — all-purpose (fertilizer prep, soil testing, research), not a soil lab.
+- Seed now loads all baseline data (23 sites, 60 workers, 41 assets, 18 stations / 65 sensors, 3 livestock groups, 23 inventory items + opening balances) in ~1.8 s. Harvest tables are seeded empty — events are the simulator's job.
+- Verified: constraints reject 7 kinds of bad rows; a sample harvest + compost-usage scenario queries correctly; all 9 migrations round-trip `base` ↔ `head`; 27 tests pass.
+- Concept numbers chosen for these tables are recorded in `docs/estate-concept.md` v1.2 ("Resources & sites").
+- Known app-level rule (not a DB constraint): harvest batches should only reference crop species, not shade trees.
 
 ## Not done yet — the exact next steps
 
-Design the real schema together — `Block` (properly, from the estate-concept table), `Plant` (all 44,950 tagged individuals), `Worker`, `Asset`, `SensorStation`, `LivestockGroup`, `InventoryItem`, `HarvestBatch` — then regenerate the migration for real.
+**Phase 2 — simulation engine**, starting with its own short planning pass: what the simulator generates first (weather → soil moisture → plant/pest state → worker activity → harvest batches + inventory movements), time-step size, and how it writes into the Phase 1 tables.
 
 ## Open decisions already made (don't re-ask)
 

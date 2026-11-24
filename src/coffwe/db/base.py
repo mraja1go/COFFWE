@@ -13,7 +13,9 @@ load_dotenv()  # reads .env into os.environ
 # drop or alter a constraint can't reliably refer to it.
 NAMING_CONVENTION = {
     "ix": "ix_%(column_0_label)s",
-    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    # column_0_N_name joins *all* columns, so multi-column constraints get honest
+    # names (uq_plants_block_id_species_id_sequence). Single-column names unchanged.
+    "uq": "uq_%(table_name)s_%(column_0_N_name)s",
     "ck": "ck_%(table_name)s_%(constraint_name)s",
     "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
     "pk": "pk_%(table_name)s",

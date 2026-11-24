@@ -1,6 +1,6 @@
 # COFFWE — Estate Concept
 
-Status: **finalized** (v1.0, locked 2026-11-10) — this is the ground truth the simulator, data model, and every AI brain are built against. Changing any of these facts later is a deliberate decision, not a drive-by edit.
+Status: **finalized** (v1.0 locked 2026-11-10; v1.1 2026-11-24 — ASCII tag format, species codes, shade-tree mix; v1.2 2026-11-24 — Estate Lab, resource counts) — this is the ground truth the simulator, data model, and every AI brain are built against. Changing any of these facts later is a deliberate decision, not a drive-by edit.
 
 COFFWE is a fully imaginary, 50-year-old shade coffee estate in the Western Ghats highlands, elevation 1200–1300 m. It grows Arabica and Robusta in equal numbers across 10 unequal blocks, intercropped with pepper and areca nut, surrounded by native forest shade trees, and run with an explicit organic/"go green" transition in mind.
 
@@ -42,7 +42,7 @@ Arabica is biased to the cooler, higher blocks and Robusta to the warmer, lower 
 | B9 High Arabica II, Ridge | 9 | 1280–1300 m | **Steep** | Thin rocky lateritic | 100% shade | Arabica 2,450 (wide-spaced) | Pepper 900 | 810 | Wide spacing + extra shade for ridge erosion control |
 | B10 Open-Sun Trial & Forest Edge | 7 (4+3) | 1285–1300 m | **Steep** | Thin lateritic / forest humus | Open-sun + buffer | Arabica 700 + Robusta 700 (open-sun) | — | 300 (buffer only) | Growth/yield trial vs. shaded blocks; 3 ac kept as forest buffer |
 
-The **estate core** (processing, storage, fertilizer lab + vermicompost + biogas, plant nursery, cow + chicken sheds, worker housing) sits geographically centered among the blocks — adjacent to B6 and B7 — rather than at the estate edge, for roughly equal access from every block.
+The **estate core** (processing, storage, Estate Lab + vermicompost + biogas, plant nursery, cow + chicken sheds, worker housing) sits geographically centered among the blocks — adjacent to B6 and B7 — rather than at the estate edge, for roughly equal access from every block.
 
 ## Profitable crops & products
 
@@ -61,7 +61,7 @@ Silver Oak (naturalized, standard pepper-support shade tree) plus 20 native West
 
 ## Livestock & the organic loop
 
-Cows and chickens are support livestock, not primary profit centers — they close a waste-to-input loop: cow dung + processing wastewater feed a **biogas unit**; pulp waste + dung feed **vermicompost pits**; both feed the **fertilizer & soil lab**, which blends organic inputs and runs per-block soil tests. Chickens forage near block edges for natural insect control.
+Cows and chickens are support livestock, not primary profit centers — they close a waste-to-input loop: cow dung + processing wastewater feed a **biogas unit**; pulp waste + dung feed **vermicompost pits**; both feed the **Estate Lab** — an all-purpose lab for organic fertilizer preparation, per-block soil testing, and estate research. Chickens forage near block edges for natural insect control.
 
 ## Water & irrigation
 
@@ -100,8 +100,46 @@ Trap counts + weather data are the feed the Pest Control AI brain's outbreak-pro
 
 ## Tagging convention
 
-Every tree, vine, and coffee plant gets a unique tag: `<Block>·<Species>·<Sequence>`, e.g. `B3·RB·00147` for Robusta tree #147 in Block 3. Species codes: `RB` Robusta, `AR` Arabica, `PP` Pepper, `AN` Areca nut, plus a short code per native species.
+Every tree, vine, and coffee plant gets a unique tag: `<Block>-<Species>-<Sequence>`, e.g. `B3-RB-00147` for Robusta tree #147 in Block 3. Sequence numbers restart at 1 for each species within each block.
+
+*v1.1 (2026-11-24): separator changed from `·` (middle dot) to `-` — plain ASCII is easier to type in queries, URLs and CLIs.*
+
+Species codes:
+
+| Code | Species | Code | Species | Code | Species |
+|---|---|---|---|---|---|
+| `AR` | Arabica | `RW` | Indian rosewood | `WD` | White dammar (Dhoopa) |
+| `RB` | Robusta | `HG` | Indian beech (Honge) | `NM` | Wild nutmeg |
+| `PP` | Black pepper | `KD` | Kindal | `WC` | Wild cinnamon |
+| `AN` | Areca nut | `MT` | Matti | `KB` | Kadamba |
+| `SO` | Silver oak | `PN` | Indian laurel (Punna) | `JM` | Jamun (Naval) |
+| `DD` | Dadap | `AT` | Cluster fig (Atthi) | `KN` | Indian kino (Honne) |
+| `WJ` | Wild jack (Ainili) | `BY` | Banyan | `MG` | Mango |
+| `JF` | Jackfruit | `IW` | Ironwood (Nagasampige) | `BB` | Bamboo |
+| | | `HP` | Hopea | | |
+
+## Shade-tree species mix (v1.1 modelling choice)
+
+The block table fixes how many shade/native trees each block has, but not which species. That split is an explicit modelling choice, defined in `src/coffwe/estate_data.py` (`SHADE_WEIGHTS`, `FOREST_WEIGHTS`) and allocated deterministically (largest-remainder), so every seed produces the identical estate:
+
+- **Shaded blocks (B1–B9):** silver oak dominant (~34%, the pepper-support tree), dadap common (~10%), then fruit/timber natives; rare forest species scarce.
+- **B10 forest buffer:** natural forest mix — no silver oak (non-native) and no dadap (a planted shade tree); evergreen Western Ghats species such as hopea and white dammar dominate.
+
+## Resources & sites (v1.2 modelling choices)
+
+The original concept described these qualitatively; v1.2 fixes concrete numbers so the data model and simulator have something exact to build on. All of it lives in `src/coffwe/estate_data.py`.
+
+| | |
+|---|---|
+| Sites | 23 named places: the 10 blocks, 10 estate-core facilities (wet processing yard, drying yard, storage warehouse, **Estate Lab**, compost & biogas unit, nursery, cow shed, chicken coop, worker housing, workshop & garage), Stream 1 reservoir, Stream 2, and the forest corridor boundary |
+| Estate Lab | All-purpose: organic fertilizer preparation, soil testing, and research (not a soil-only lab) |
+| Workforce | 15 permanent (1 manager, 1 supervisor, 1 lab technician, 2 processing operators, 1 mechanic, 1 nursery keeper, 1 livestock keeper, 1 driver, 1 watchman, 5 field workers; 7 housed on-site) + 45 seasonal pickers, contracted 1 Nov – 28 Feb. Names are fictional. |
+| Livestock | 6 cows, 60 free-range layer hens, 24 beehives along the corridor fence |
+| Sensor fleet | 18 stations / 65 sensors: 1 estate weather mast, a field station in every block (soil moisture & temperature, leaf wetness, air temperature & humidity), drying-yard rain sensor, reservoir level, Stream 2 flow, 4 corridor motion/IR sensors |
+| Assets | 41 machines & equipment, incl. pulper, fermentation tanks, polyhouse dryer, biogas digester, 4 vermicompost pits, generator, solar array, pickup, power tiller, lab kit. **Actuatable** (Phase 8 closed loop): the polyhouse curtain motor, the irrigation pump, and one zone valve per block |
+| Inventory | 23 items (organic + legacy fertilizer, biocontrols, packaging, fuel, spares, nursery stock, feed), opening balances dated 1 Nov 2026. Stock on hand is the sum of an append-only movement ledger. |
+| Harvest | A batch = one crop from one block on one day; per-picker weights recorded separately. Batches are events, so the Phase 2 simulator generates them — none are seeded. |
 
 ---
 
-Full concept sketch (visual): see the artifact linked from the project's planning history. This document is the source of truth going forward — the Phase 1 data model (next step) turns every table above into real schema.
+Full concept sketch (visual): see the artifact linked from the project's planning history. This document is the source of truth going forward — the Phase 1 data model (`src/coffwe/db/models.py`, seeded from `src/coffwe/estate_data.py`) turns every table above into real schema.
