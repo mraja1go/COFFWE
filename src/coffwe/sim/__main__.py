@@ -1,6 +1,6 @@
 """Command line for the simulator.
 
-uv run python -m coffwe.sim run [--seed 42] [--start 2026-01-01] [--days 365]
+uv run python -m coffwe.sim run [--seed 42] [--start 2026-01-01] [--days 455]
 uv run python -m coffwe.sim validate-weather [--years 30]
 """
 
@@ -18,7 +18,7 @@ def main() -> None:
     run_p = sub.add_parser("run", help="run the simulator and write ground truth")
     run_p.add_argument("--seed", type=int, default=42)
     run_p.add_argument("--start", type=date.fromisoformat, default=engine.SPINUP_START)
-    run_p.add_argument("--days", type=int, default=365)
+    run_p.add_argument("--days", type=int, default=engine.DEFAULT_DAYS)
 
     val_p = sub.add_parser("validate-weather", help="compare synthetic weather with real data")
     val_p.add_argument("--years", type=int, default=30, help="synthetic years to generate")

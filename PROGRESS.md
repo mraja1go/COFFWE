@@ -71,9 +71,17 @@ Read this first when resuming in a new terminal/session. For the big picture see
 - Year 1 (seed 42): ET0 1,551 mm; shaded blocks ET ~950–980 mm; thin rocky B5/B9 lose ~43% of rain to runoff and hit wilting point by March; open-sun B10 ~20% fewer leaf-wet hours than shaded B8.
 - Tests: exact water conservation and physical bounds under random weather (Hypothesis); shade/slope/lapse effects; analytic cloudburst steady state. 63 tests pass.
 
+**M3 — coffee phenology & yield: done (2026-11-25)**
+- `src/coffwe/sim/coffee.py`: per (block, variety) unit, daily — bud dormancy (30 dry days since 1 Dec), blossom showers (AR ≥20 mm, RB ≥25 mm over 2 days, window 20 Jan–15 May) opening 75% of remaining buds as a *cohort* 9 days later, fruit set from water stress in the 21 days after opening (floor 0.65) and Robusta pollination rain penalty, fill from stress on days 60–150, ripening by degree-days >10 °C (AR 3,130, RB 3,460, spread 5%), ripe pool 12 days → over-ripe 10 days → fallen.
+- `src/coffwe/sim/management.py`: `BaselineManagement` = the estate manager until the AI brains take over — blossom irrigation (Robusta blocks 20 Feb, Arabica 10 Mar) if showers failed, backing irrigation 18 days later if no ≥10 mm rain. Uses the soil model's irrigation hook.
+- Engine is now a day loop (management → 24 soil hours → daily coffee). Default run is 1 Jan 2026 → 31 Mar 2027 (455 days, ~2 s) to cover the full 2026-27 harvest. New datasets: `coffee_daily`, `coffee_blossoms`, `irrigation_log`.
+- Calibrated to the Karnataka calendar: Arabica peaks mid-Dec (high B8/B9 ~20 Jan), Robusta ~10–30 Jan, tails into early Mar; seed 42 gives ~83 t fresh cherry (~2.3–3.6 kg/plant; open-sun B10 highest).
+- Nothing picks yet (M4), so every ripe cherry eventually falls in this milestone.
+- 78 tests pass (blossom rules, bud-share bounds via Hypothesis, crop conservation, fall timing, warmth/stress/pollination effects, manager behaviour, end-to-end harvest calendar).
+
 ## Not done yet — the exact next steps
 
-**Phase 2 M3 — coffee phenology & yield** (see plan): blossom triggered by ≥ ~25 mm showers after a dry spell (and blossom irrigation if showers fail), cherry development by thermal time, water-stress effects on fruit set, daily ripe-cherry pool per block per variety.
+**Phase 2 M4 — harvest & processing** (see plan): daily picking plan (pickers → blocks), pick rates, `harvest_batches` + `harvest_picks` written to Postgres from 25 Nov, washed vs natural processing, status progression and dried outputs, jute bags/fuel drawn from inventory.
 
 ## Open decisions already made (don't re-ask)
 
