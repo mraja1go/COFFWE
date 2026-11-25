@@ -15,12 +15,13 @@ Weather is *forcing*: nothing on the estate feeds back into it, so a whole run's
 weather is generated up front, vectorized, before the hourly engine loop starts.
 """
 
-from datetime import date
+from datetime import date, timedelta
 
 import numpy as np
 import pandas as pd
 
 from coffwe.sim import climate as C
+from coffwe.sim.rng import stream
 
 HOURLY_COLUMNS = [
     "air_temperature",  # degC
@@ -35,8 +36,14 @@ HOURLY_COLUMNS = [
 # --- 1-3: daily series -------------------------------------------------------------
 
 
-def generate_daily(start: date, end: date, rng: np.random.Generator) -> pd.DataFrame:
-    """One row per day in [start, end): wet flag, rain, tmin/tmax, daily RH and wind."""
+def generate_daily(
+    start: date, end: date, rng: np.random.Generator, carry: tuple[bool, float] | None = None
+) -> pd.DataFrame:
+    """One row per day in [start, end): wet flag, rain, tmin/tmax, daily RH and wind.
+
+    `carry` = (was yesterday wet, yesterday's temperature anomaly), to continue a
+    previous chunk seamlessly; the final state is left in ``df.attrs["carry"]``.
+    """
     days = pd.date_range(start, end, freq="D", inclusive="left")
     n = len(days)
     doy = np.minimum(days.day_of_year.to_numpy(), 365)  # treat 31 Dec of leap years as 30 Dec
@@ -56,7 +63,7 @@ def generate_daily(start: date, end: date, rng: np.random.Generator) -> pd.DataF
 
     u = rng.random(n)
     wet = np.zeros(n, dtype=bool)
-    prev = False
+    prev = carry[0] if carry else False
     for i in range(n):  # sequential by nature: each day depends on the previous one
         wet[i] = u[i] < (p_wet_after_wet[i] if prev else p_wet_after_dry[i])
         prev = wet[i]
@@ -84,7 +91,9 @@ def generate_daily(start: date, end: date, rng: np.random.Generator) -> pd.DataF
     phi = C.TEMP_ANOMALY_PHI
     noise = rng.normal(0, C.TEMP_ANOMALY_SD_C * np.sqrt(1 - phi**2), n)
     anomaly = np.empty(n)
-    a = rng.normal(0, C.TEMP_ANOMALY_SD_C)  # start from the long-run distribution
+    a = rng.normal(0, C.TEMP_ANOMALY_SD_C)  # start from the long-run distribution...
+    if carry:
+        a = carry[1]  # ...unless continuing from the previous chunk
     for i in range(n):
         a = phi * a + noise[i]
         anomaly[i] = a
@@ -100,7 +109,7 @@ def generate_daily(start: date, end: date, rng: np.random.Generator) -> pd.DataF
     wind = C.interpolate_monthly(N.wind_ms, doy) * rng.lognormal(0, 0.25, n) / np.exp(0.25**2 / 2)
     clear_kt = C.interpolate_monthly(C.CLEAR_DAY_KT, doy)
 
-    return pd.DataFrame(
+    frame = pd.DataFrame(
         {
             "wet": wet,
             "rain_mm": rain,
@@ -114,24 +123,33 @@ def generate_daily(start: date, end: date, rng: np.random.Generator) -> pd.DataF
         },
         index=pd.Index(days.date, name="date"),
     )
+    frame.attrs["carry"] = (bool(wet[-1]), float(anomaly[-1])) if n else carry
+    return frame
 
 
 # --- 4: hourly disaggregation ------------------------------------------------------
 
 
-def _hourly_temperature(daily: pd.DataFrame) -> np.ndarray:
+def _hourly_temperature(
+    daily: pd.DataFrame,
+    before: tuple[float, float] | None = None,
+    after: tuple[float, float] | None = None,
+) -> np.ndarray:
     """Cosine curve through tmin at 06:00 and tmax at 14:00 of every day.
 
     Between anchors the value follows half a cosine wave, so it rises fastest
     mid-morning and flattens out near the extremes, like a real thermograph trace.
-    The night-time fall runs from today's tmax to *tomorrow's* tmin.
+    The night-time fall runs from today's tmax to *tomorrow's* tmin. `before`/`after`
+    are the (tmin, tmax) of the days just outside this chunk, so chunks join smoothly.
     """
     n_days = len(daily)
     tmin, tmax = daily["tmin"].to_numpy(), daily["tmax"].to_numpy()
     # Anchor times in hours since the first midnight; pad one day either side.
     day_offsets = np.arange(-1, n_days + 1) * 24
-    tmin_p = np.concatenate([[tmin[0]], tmin, [tmin[-1]]])
-    tmax_p = np.concatenate([[tmax[0]], tmax, [tmax[-1]]])
+    b_min, b_max = before or (tmin[0], tmax[0])
+    a_min, a_max = after or (tmin[-1], tmax[-1])
+    tmin_p = np.concatenate([[b_min], tmin, [a_min]])
+    tmax_p = np.concatenate([[b_max], tmax, [a_max]])
     anchor_t = np.column_stack([day_offsets + C.TMIN_HOUR, day_offsets + C.TMAX_HOUR]).ravel()
     anchor_v = np.column_stack([tmin_p, tmax_p]).ravel()
 
@@ -174,7 +192,12 @@ def _solar_sin_elevation(timestamps: pd.DatetimeIndex) -> np.ndarray:
     )
 
 
-def generate_hourly(daily: pd.DataFrame, rng: np.random.Generator) -> pd.DataFrame:
+def generate_hourly(
+    daily: pd.DataFrame,
+    rng: np.random.Generator,
+    before: tuple[float, float] | None = None,
+    after: tuple[float, float] | None = None,
+) -> pd.DataFrame:
     n_days = len(daily)
     timestamps = pd.date_range(
         pd.Timestamp(daily.index[0]), periods=n_days * 24, freq="h", tz=C.TIMEZONE
@@ -183,7 +206,7 @@ def generate_hourly(daily: pd.DataFrame, rng: np.random.Generator) -> pd.DataFra
     def per_hour(col: str) -> np.ndarray:
         return np.repeat(daily[col].to_numpy(), 24)
 
-    temp = _hourly_temperature(daily)
+    temp = _hourly_temperature(daily, before, after)
     rain = _hourly_rain(daily, rng)
     raining = rain > 0
     wet_day, monsoon = per_hour("wet"), per_hour("monsoon")
@@ -240,8 +263,42 @@ def _weibull_mean(k: float) -> float:
 
 
 def generate_weather(start: date, end: date, rng: np.random.Generator) -> pd.DataFrame:
-    """Hourly weather at the estate mast for [start, end)."""
+    """Hourly weather at the estate mast for [start, end), from one random stream."""
     return generate_hourly(generate_daily(start, end, rng), rng)
+
+
+def generate_weather_for_seed(start: date, end: date, seed: int) -> pd.DataFrame:
+    """Hourly weather for [start, end) that depends only on (seed, calendar day).
+
+    Drawing one random array for the whole run would make every day's weather depend
+    on how long the run is: extend a run by a month and the past changes. Instead each
+    calendar year draws from its own stream, and the rain-spell state, temperature
+    anomaly and night-time temperature curve carry across New Year. Extending,
+    shortening or restarting a run never rewrites weather that has already happened.
+    """
+    years = range(start.year, (end - timedelta(days=1)).year + 1)
+    chunks, carry = [], None
+    for year in years:
+        rng = stream(seed, f"weather-{year}")
+        daily = generate_daily(date(year, 1, 1), date(year + 1, 1, 1), rng, carry)
+        carry = daily.attrs["carry"]
+        chunks.append((daily, rng))
+    hourly = []
+    for i, (daily, rng) in enumerate(chunks):
+        prev = chunks[i - 1][0].iloc[-1] if i > 0 else None
+        nxt = chunks[i + 1][0].iloc[0] if i + 1 < len(chunks) else None
+        hourly.append(
+            generate_hourly(
+                daily,
+                rng,
+                before=(prev["tmin"], prev["tmax"]) if prev is not None else None,
+                after=(nxt["tmin"], nxt["tmax"]) if nxt is not None else None,
+            )
+        )
+    weather = pd.concat(hourly)
+    lo = pd.Timestamp(start).tz_localize(C.TIMEZONE)
+    hi = pd.Timestamp(end).tz_localize(C.TIMEZONE)
+    return weather[(weather.index >= lo) & (weather.index < hi)]
 
 
 def block_air_temperature(mast_temperature: np.ndarray, elevation_m: float) -> np.ndarray:

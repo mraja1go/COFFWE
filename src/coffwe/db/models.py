@@ -254,9 +254,44 @@ class Asset(Base):
     notes: Mapped[str | None] = mapped_column(Text)
 
     site: Mapped[Site] = relationship()
+    events: Mapped[list[AssetEvent]] = relationship(back_populates="asset")
 
     def __repr__(self) -> str:
         return f"<Asset {self.code} {self.status}>"
+
+
+class AssetEventType(enum.StrEnum):
+    FAILURE = "failure"
+    REPAIR = "repair"  # back in service after a failure
+    MAINTENANCE = "maintenance"  # planned service (resets wear)
+
+
+class AssetEvent(Base):
+    """The maintenance log: every failure, repair and planned service of an asset.
+
+    usage_since_service records how worn the machine was at that moment (in its own
+    unit: hours, cycles, km) -- the key feature for predicting the next failure.
+    """
+
+    __tablename__ = "asset_events"
+    __table_args__ = (
+        CheckConstraint(
+            "usage_since_service IS NULL OR usage_since_service >= 0", name="usage_non_negative"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    asset_id: Mapped[int] = mapped_column(ForeignKey("assets.id"), index=True)
+    occurred_on: Mapped[date]
+    event_type: Mapped[AssetEventType] = mapped_column(str_enum(AssetEventType, "event_type"))
+    usage_since_service: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    usage_unit: Mapped[str | None] = mapped_column(String(10))  # "h", "cycles", "km", "days"
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    asset: Mapped[Asset] = relationship(back_populates="events")
+
+    def __repr__(self) -> str:
+        return f"<AssetEvent {self.event_type} asset={self.asset_id} on {self.occurred_on}>"
 
 
 # --- Sensors -----------------------------------------------------------------------

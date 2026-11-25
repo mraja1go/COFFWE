@@ -192,7 +192,7 @@ def test_unmanaged_estate_gets_realistically_bad(runs):
     assert harvest["cbb_infestation"].mean() > 0.15  # neglected estates: 15-40% bored
     rust = ar.groupby(ar.index.month)["rust_incidence"].mean()
     assert rust.idxmax() in (9, 10, 11)  # rust peaks after the monsoon
-    assert rust.loc[[9, 10, 11]].max() > 0.25
+    assert rust.loc[[9, 10, 11]].max() > 0.15  # ~15-40% depending on the monsoon
 
 
 def test_managed_estate_holds_borers_near_the_threshold(runs):

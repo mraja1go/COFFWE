@@ -14,6 +14,8 @@ policy plays the estate manager, using standard Karnataka practice:
 * Integrated pest management -- monthly pheromone lures; weekly scouting; Beauveria
   against berry borer and Bordeaux against leaf rust only above thresholds; gleaning
   fallen berries once a block's harvest is over.
+* Field work and feeding -- weeding (Dec-Jan) and shade lopping (Feb-Mar); vermicompost
+  spread on each block once its harvest is over.
 
 Decisions are taken at the start of each day and applied by the soil model as
 irrigation over the morning hours (when the sprinkler crew works).
@@ -32,6 +34,14 @@ from coffwe.sim.pests import PestModel
 
 MIN_PICKABLE_KG_PER_PLANT = 0.06  # less than this and a picking round isn't worth it
 
+
+def harvest_over(coffee: CoffeeModel, unit_code: str) -> bool:
+    """The season's picking is done when what's left -- hanging or still to ripen -- is
+    under half a worthwhile round per plant. Stragglers are left to the gleaners."""
+    u = coffee.unit(unit_code)
+    return coffee.season_crop_left_kg(unit_code) / u.plants < MIN_PICKABLE_KG_PER_PLANT / 2
+
+
 BLOSSOM_IRRIGATION_MM = 30.0
 BACKING_IRRIGATION_MM = 25.0
 BACKING_AFTER_DAYS = 18
@@ -49,6 +59,9 @@ BORDEAUX_KG_PER_ACRE = 2.0  # 1% Bordeaux: equal copper sulphate and lime
 BORDEAUX_GAP_DAYS = 30
 SPRAY_MAX_RAIN_MM = 5.0  # sprays wash off: don't spray on a wet day
 
+WEEDING_HOURS = 6.0  # per brush cutter per weeding day
+LOPPING_HOURS = 5.0
+
 
 @dataclass
 class BaselineManagement:
@@ -59,6 +72,7 @@ class BaselineManagement:
     ipm_enabled: bool = True  # False = the "no pest management" counterfactual
     ipm_log: list[dict] = field(default_factory=list)
     _last_spray: dict[str, dict[str, date]] = field(default_factory=dict)
+    _fed: dict[str, int] = field(default_factory=dict)  # block -> season fed
     _forced: dict[str, date] = field(default_factory=dict)  # block -> forced blossom date
     _rain_since: dict[str, float] = field(default_factory=dict)
 
@@ -222,12 +236,36 @@ class BaselineManagement:
 
             # Field hygiene: once a block's harvest is over, collect the fallen berries.
             season = day.year if day.month <= 6 else day.year + 1
-            done = all(
-                coffee.unit(p.code).ripe_kg + coffee.unit(p.code).overripe_kg < 1.0
-                and coffee.unit(p.code).green_kg() < 1.0
-                for p in units
-            )
+            done = all(harvest_over(coffee, p.code) for p in units)
             if 2 <= day.month <= 5 and done and units[0].gleaned_season != season:
                 pests.glean(b.code, season)
                 self.ipm_log.append({"day": day, "block_code": b.code, "action": "gleaning",
                                      "scouted": None})  # fmt: skip
+
+    # --- field operations & feeding the soil ---------------------------------------
+
+    @staticmethod
+    def field_operations(day: date) -> dict[str, float]:
+        """Machine hours for routine field work today: post-monsoon weeding with the
+        brush cutters (Dec-Jan, Tue/Thu) and shade lopping with the chainsaw (Feb-Mar,
+        Wednesdays) -- opening the canopy before the blossom."""
+        hours: dict[str, float] = {}
+        if day.month in (12, 1) and day.weekday() in (1, 3):
+            hours |= {"BRUSH-01": WEEDING_HOURS, "BRUSH-02": WEEDING_HOURS}
+        if day.month in (2, 3) and day.weekday() == 2:
+            hours["CHAINSAW-01"] = LOPPING_HOURS
+        return hours
+
+    def feed_blocks(self, day: date, coffee: CoffeeModel, organics) -> None:
+        """Once a block's harvest is over (Feb-May), spread vermicompost on it, once a season."""
+        if not 2 <= day.month <= 5:
+            return
+        season = day.year
+        for b in BLOCKS:
+            units = [u for u in coffee.units if u.block.code == b.code]
+            done = all(harvest_over(coffee, u.code) for u in units)
+            if done and self._fed.get(b.code) != season:
+                # Only counts as fed if there was compost to spread; otherwise try again
+                # tomorrow, after the stores have restocked.
+                if organics.apply_vermicompost(day, b.code, sum(u.plants for u in units)) > 0:
+                    self._fed[b.code] = season

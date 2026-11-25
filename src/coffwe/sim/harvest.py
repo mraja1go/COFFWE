@@ -64,6 +64,7 @@ class Batch:
     picks: list[tuple[str, float]]  # (worker code, field kg)
     status: str = "received"
     drying_credit: float = 0.0
+    pulped_on: date | None = None  # washed only; later than harvest if the pulper was down
     drying_started_on: date | None = None
     stored_on: date | None = None
     dispatched_on: date | None = None
@@ -90,10 +91,11 @@ class InventoryLedger:
     movements: list[Movement] = field(default_factory=list)
 
     def record(self, day: date, item: str, quantity: float, reason: str, **kw) -> None:
+        quantity = round(quantity, 3)  # the ledger's precision (Numeric(12, 3) in Postgres)
         if quantity == 0:
             return
-        self.on_hand[item] += quantity
-        self.movements.append(Movement(day, item, round(quantity, 3), reason, **kw))
+        self.on_hand[item] += quantity  # stock = exactly the sum of what's recorded
+        self.movements.append(Movement(day, item, quantity, reason, **kw))
 
 
 class HarvestModel:
@@ -178,20 +180,30 @@ class HarvestModel:
 
     # --- processing ------------------------------------------------------------
 
-    def process_day(self, day: date, rain_mm: float, solar_mean_wm2: float) -> None:
+    def process_day(
+        self, day: date, rain_mm: float, solar_mean_wm2: float, caps: dict | None = None
+    ) -> dict:
+        """Move batches through processing. `caps` says which machines work today (M7):
+        no pulper -> washed cherry waits; no rain cover -> rain stops drying entirely;
+        no pickup -> the lorry run waits for the next dispatch day.
+        Returns today's activity, which wears the machines."""
+        caps = caps or {"pulping": True, "rain_cover": True, "transport": True}
         if rain_mm >= 2.0:
-            credit = RAIN_DAY_CREDIT
+            credit = RAIN_DAY_CREDIT if caps["rain_cover"] else 0.0
         elif solar_mean_wm2 >= GOOD_DRYING_SOLAR_WM2:
             credit = DRY_DAY_CREDIT
         else:
             credit = CLOUDY_DAY_CREDIT
 
+        pulped = 0.0
         for b in self.batches:
-            age = (day - b.harvested_on).days
-            if b.status == "received" and b.method == "washed" and age == 0:
-                b.status = "processing"
+            if b.status == "received" and b.method == "washed":
+                if caps["pulping"]:  # waits in the receiving tank if the pulper is down
+                    b.status, b.pulped_on = "processing", day
+                    pulped += b.cherry_kg
             elif b.status in ("received", "processing"):
-                ready = age >= (FERMENTATION_DAYS if b.method == "washed" else 1)
+                started = b.pulped_on if b.method == "washed" else b.harvested_on
+                ready = (day - started).days >= (FERMENTATION_DAYS if b.method == "washed" else 1)
                 if ready:
                     b.status, b.drying_started_on = "drying", day
             if b.status == "drying":
@@ -202,7 +214,8 @@ class HarvestModel:
 
         # Dried coffee sits in bulk in the store; it's bagged when the lorry comes, one
         # lot per processing method (parchment and dry cherry are never mixed).
-        if day.day in DISPATCH_DAYS_OF_MONTH:
+        dispatched = False
+        if day.day in DISPATCH_DAYS_OF_MONTH and caps["transport"]:
             ready = [b for b in self.batches if b.status == "stored"]
             for method in ("washed", "natural"):
                 lot = [b for b in ready if b.method == method]
@@ -214,16 +227,20 @@ class HarvestModel:
             for b in ready:
                 b.status, b.dispatched_on = "dispatched", day
             if ready:
+                dispatched = True
                 self._use(day, "DIESEL", DIESEL_L_PER_LORRY_TRIP,
                           notes=f"lorry to curing works ({len(ready)} batches)")  # fmt: skip
 
         # The pulper's diesel is written up once a day, not per batch.
-        pulped = sum(
-            b.cherry_kg for b in self.batches if b.method == "washed" and b.harvested_on == day
-        )
         if pulped:
             self._use(day, "DIESEL", pulped / 100 * DIESEL_L_PER_100KG_PULPED,
                       notes=f"pulper, {pulped:.0f} kg cherry")  # fmt: skip
+        return {
+            "pulped_kg": pulped,
+            "drying_batches": sum(b.status == "drying" for b in self.batches),
+            "dispatched": dispatched,
+            "received_batches": sum(b.harvested_on == day for b in self.batches),
+        }
 
     def _use(self, day: date, item: str, quantity: float, **kw) -> None:
         if day >= self.ledger_from:

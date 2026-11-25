@@ -104,9 +104,20 @@ Read this first when resuming in a new terminal/session. For the big picture see
 - Fixed a latent truth-store bug: reads lost same-day row order (unstable sort), which made the inventory ledger look negative.
 - 157 tests pass (rust/borer laws, physical bounds via Hypothesis, Bordeaux/Beauveria/gleaning effects, trap response, IPM rules and inventory, managed vs unmanaged estate).
 
+**M7 — machines, organic loop, engine-wide validation: done (2026-11-25). Phase 2 complete.**
+- New table `asset_events` (migration `3f01a1982438`): the maintenance log — failure / repair / maintenance with wear since last service. Both `coffwe_dev` and `coffwe_test` migrated.
+- `src/coffwe/sim/machines.py`: every asset wears in its own unit (h, cycles, km, days); failures from a conditional Weibull (wear-out, k > 1), calibrated so each machine's yearly use gives a realistic breakdown chance (e.g. pulper ~once a season); repair times and spares (pulper screen, drip emitters); pre-season service on 15 Oct; rural power cuts run the generator. **Breakdowns have consequences**: no pulper → washed cherry waits; no polyhouse film/curtain → rain stops drying; failed pump/valve → missed irrigation; no pickup → dispatch waits.
+- `src/coffwe/sim/organics.py`: dung (5% bodyweight/day) → biogas slurry (fertigates B6/B7) + vermicompost pits with coffee pulp → vermicompost 60 days later, spread on each block once its harvest is over; weekly cattle/chicken feed; petrol for weeding (Dec–Jan) and shade lopping (Feb–Mar); diesel for the generator.
+- **Weather now depends only on (seed, calendar day)**: generated in calendar-year chunks with state carried across New Year. Previously the run length changed every day's weather (found when extending the run) — a twin must never rewrite past weather.
+- Fixed: "harvest over" ignored the *next* season's young berries (so 2027 gleaning/feeding never happened); ledger stock now sums exactly what's recorded (rounding drift).
+- Default run is now 1 Jan 2026 → 30 Apr 2027 (485 days, ~2.5 s) to include post-harvest work.
+- `uv run python -m coffwe.sim report` → `docs/phase2-report.md` (weather, water balance, crop, harvest, livestock, pests with/without IPM, breakdowns, inventory flows).
+- 195 tests pass, incl. engine-wide laws across 3 weather years (water, cherry and stock conservation; batch life-cycle order; failure→repair pairing; seasonal calendars; determinism), a KS test that simulated lifetimes are Weibull, and the Postgres write of the maintenance log.
+- Lesson: a few test bounds had been tuned to one seed's weather year; the new weather exposed it, and the multi-seed engine tests now guard against that.
+
 ## Not done yet — the exact next steps
 
-**Phase 2 M7 — machines & full-year validation** (see plan): asset wear and failures (Weibull), remaining inventory flows (vermicompost production and application, feed), property tests across the engine, and a Phase 2 validation report; then close out Phase 2.
+**Phase 3 — live feed / integration layer**, starting with its own planning pass (see `docs/artifacts/system-architecture.html`, layers 02–05): virtual sensors that sample the Parquet ground truth with realistic noise, drift, dropouts and late readings; MQTT broker; ingestion into a time-series store (TimescaleDB on the same Postgres); bridge to GCP Pub/Sub on the free tier. Decide there the twin's notion of "now" (sim clock vs wall clock) — see the `hive_overview` open issue above.
 
 ## Open decisions already made (don't re-ask)
 

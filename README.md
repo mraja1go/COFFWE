@@ -10,10 +10,10 @@ See **[docs/estate-concept.md](docs/estate-concept.md)** for the full, finalized
 
 | # | Phase | Status |
 |---|---|---|
-| 0 | Foundations & setup (this repo, GCP free-tier account) | in progress |
-| 1 | Estate data model | next |
-| 2 | Simulation engine | planned |
-| 3 | Live feed / integration layer (MQTT → Pub/Sub) | planned |
+| 0 | Foundations & setup (this repo, GCP free-tier account) | done |
+| 1 | Estate data model (Postgres + Alembic, 23 tables) | done |
+| 2 | Simulation engine (weather → soil → coffee → harvest, livestock, pests, machines) | done |
+| 3 | Live feed / integration layer (MQTT → Pub/Sub) | next |
 | 4 | Digital twin core + dashboard | planned |
 | 5 | AI brains v1 (rule-based) | planned |
 | 6 | AI brains v2 (ML/stats) | planned |
@@ -32,6 +32,23 @@ Python end-to-end, managed with [uv](https://docs.astral.sh/uv/). Google Cloud (
 uv sync              # install dependencies into .venv
 uv run pytest        # run the test suite
 uv run pre-commit install   # wire up git hooks (ruff + basic hygiene) once per clone
+```
+
+Database (local Postgres 17, `DATABASE_URL` in `.env`, see `.env.example`):
+
+```bash
+uv run alembic upgrade head      # create / migrate the schema
+uv run python -m coffwe.seed     # load the estate's baseline data
+```
+
+Simulator:
+
+```bash
+uv run python -m coffwe.sim run            # one season -> Parquet ground truth in data/sim/
+uv run python -m coffwe.sim run --db       # ...and write its events into Postgres
+uv run python -m coffwe.sim run --no-ipm   # counterfactual: no pest management
+uv run python -m coffwe.sim report         # regenerate docs/phase2-report.md
+uv run python -m coffwe.sim validate-weather   # regenerate docs/weather-validation.md
 ```
 
 ## Task autonomy

@@ -14,6 +14,8 @@ from sqlalchemy import insert, select, update
 from sqlalchemy.orm import Session
 
 from coffwe.db.models import (
+    Asset,
+    AssetEvent,
     BeeColony,
     Block,
     Cattle,
@@ -36,6 +38,7 @@ from coffwe.estate_data import BEEKEEPER_CODE
 from coffwe.sim.climate import TIMEZONE
 from coffwe.sim.harvest import Batch, Movement
 from coffwe.sim.livestock import BeeModel, CattleModel
+from coffwe.sim.machines import MachineModel
 
 IST = ZoneInfo(TIMEZONE)
 MOVEMENT_TIME = time(17, 0)  # the stores clerk writes up the day's ledger at 5 pm
@@ -249,3 +252,25 @@ def write_livestock(session: Session, cattle: CattleModel, bees: BeeModel) -> di
         "ended_colonies": ended_colonies,
         "new_queens": new_queens,
     }
+
+
+def write_machines(session: Session, machines: MachineModel, events_start: date) -> dict[str, int]:
+    """The maintenance log from events_start, plus every asset's status at the run's end."""
+    asset_ids = _codes(session, Asset)
+    rows = [
+        {
+            "asset_id": asset_ids[e["asset_code"]],
+            "occurred_on": e["day"],
+            "event_type": e["event_type"],
+            "usage_since_service": e["usage_since_service"],
+            "usage_unit": e["usage_unit"],
+            "notes": e["notes"],
+        }
+        for e in machines.events
+        if e["day"] >= events_start
+    ]
+    if rows:
+        session.execute(insert(AssetEvent), rows)
+    for code, m in machines.machines.items():
+        session.execute(update(Asset).where(Asset.id == asset_ids[code]).values(status=m.status))
+    return {"asset_events": len(rows)}

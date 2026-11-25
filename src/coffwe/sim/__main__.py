@@ -1,6 +1,6 @@
 """Command line for the simulator.
 
-uv run python -m coffwe.sim run [--seed 42] [--start 2026-01-01] [--days 455] [--db]
+uv run python -m coffwe.sim run [--seed 42] [--start 2026-01-01] [--days 485] [--db]
 uv run python -m coffwe.sim validate-weather [--years 30]
 """
 
@@ -22,6 +22,9 @@ def main() -> None:
     run_p.add_argument("--db", action="store_true", help="reseed Postgres, then write events")
     run_p.add_argument("--no-ipm", action="store_true", help="counterfactual: no pest management")
 
+    rep_p = sub.add_parser("report", help="write docs/phase2-report.md from a full season")
+    rep_p.add_argument("--seed", type=int, default=42)
+
     val_p = sub.add_parser("validate-weather", help="compare synthetic weather with real data")
     val_p.add_argument("--years", type=int, default=30, help="synthetic years to generate")
 
@@ -36,6 +39,10 @@ def main() -> None:
         print(f"Ground truth: {store.run_dir}/  ({', '.join(info.datasets)})")
         if store.db_counts:
             print("Postgres events:", ", ".join(f"{k} {v:,}" for k, v in store.db_counts.items()))
+    elif args.command == "report":
+        from coffwe.sim import report
+
+        print(f"Report written to {report.run(seed=args.seed)}")
     elif args.command == "validate-weather":
         from coffwe.sim import validation
 

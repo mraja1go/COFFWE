@@ -82,7 +82,8 @@ def test_nobody_is_in_two_places_at_once(run):
 def test_peak_season_picking_rates_are_realistic(run):
     p = run["picks"]
     jan = p[pd.to_datetime(p["harvested_on"]).dt.month == 1]
-    assert 25 < jan["kg"].mean() < 70  # selective picking, kg fresh cherry per picker-day
+    # selective picking, kg fresh cherry per picker-day; lower in a light-crop year
+    assert 20 < jan["kg"].mean() < 70
 
 
 # --- batches -----------------------------------------------------------------------

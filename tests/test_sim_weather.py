@@ -18,6 +18,7 @@ from coffwe.sim.weather import (
     generate_daily,
     generate_hourly,
     generate_weather,
+    generate_weather_for_seed,
 )
 
 seeds = st.integers(min_value=0, max_value=2**32 - 1)
@@ -157,5 +158,20 @@ def test_engine_writes_readable_ground_truth(tmp_path):
     assert len(w) == 40 * 24
     assert str(w.index.tz) == C.TIMEZONE
     assert w.index.is_monotonic_increasing
-    expected = generate_weather(date(2026, 1, 1), date(2026, 2, 10), stream(1, "weather"))
+    expected = generate_weather_for_seed(date(2026, 1, 1), date(2026, 2, 10), 1)
     np.testing.assert_allclose(w.to_numpy(), expected.to_numpy())
+
+
+def test_weather_depends_only_on_seed_and_day_not_run_length():
+    long = generate_weather_for_seed(date(2026, 1, 1), date(2028, 6, 1), 9)
+    short = generate_weather_for_seed(date(2026, 1, 1), date(2027, 4, 1), 9)
+    middle = generate_weather_for_seed(date(2027, 2, 10), date(2027, 3, 1), 9)
+    pd.testing.assert_frame_equal(short, long.loc[short.index])
+    pd.testing.assert_frame_equal(middle, long.loc[middle.index])
+
+
+def test_weather_is_continuous_across_new_year():
+    w = generate_weather_for_seed(date(2026, 12, 20), date(2027, 1, 10), 9)
+    jumps = w["air_temperature"].diff().abs()
+    midnight = w.index.get_loc(pd.Timestamp("2027-01-01", tz=C.TIMEZONE))
+    assert jumps.iloc[midnight] <= jumps.drop(jumps.index[midnight]).max()

@@ -61,6 +61,7 @@ OVERRIPE_DAYS = 10  # ...then over-ripe, then it falls
 POLLINATION_RAIN_PENALTY = 0.8
 YEAR_VARIATION_SD = 0.08  # unexplained block-to-block, year-to-year yield variation
 BORER_SUSCEPTIBLE_AFTER_DAYS = 120  # berries harden enough for the borer to enter
+CURRENT_SEASON_MIN_AGE_DAYS = 200  # older cohorts belong to the harvest under way
 BORER_WEIGHT_LOSS = 0.35  # share of a bored berry's weight lost (bean eaten, early drop)
 RUST_CARRY_OVER = 0.5  # next-year bud loss per unit of leaf area lost to rust
 
@@ -183,6 +184,18 @@ class CoffeeModel:
             if c.days_since_open >= BORER_SUSCEPTIBLE_AFTER_DAYS
         )
         return green + float(u.pool.sum())
+
+    def season_crop_left_kg(self, code: str) -> float:
+        """Cherry still to come from the *current* harvest: the ripe pool plus green berries
+        old enough to belong to it. The next season's young berries (blossomed this
+        spring) don't count -- otherwise a harvest would never look finished."""
+        u = self.unit(code)
+        mature_green = sum(
+            c.final_kg() * (1 - c.ripened_share)
+            for c in u.cohorts
+            if c.days_since_open >= CURRENT_SEASON_MIN_AGE_DAYS
+        )
+        return mature_green + float(u.pool.sum())
 
     def unblossomed(self, block_code: str, variety: str | None = None) -> bool:
         """True if this block (variety) hasn't had its main blossom yet this year."""

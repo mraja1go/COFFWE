@@ -1,6 +1,6 @@
 # Phase 2 — Simulation engine (plan)
 
-_Agreed 2026-11-25. The simulator is "the real estate": it generates the ground truth that the Phase 3 virtual sensors will observe (imperfectly) and the digital twin will try to mirror._
+_Agreed 2026-11-25; **completed 2026-11-25** (M1–M7, see `PROGRESS.md` and `docs/phase2-report.md`). The simulator is "the real estate": it generates the ground truth that the Phase 3 virtual sensors will observe (imperfectly) and the digital twin will try to mirror._
 
 ## Decisions
 
@@ -66,6 +66,6 @@ Clock, RNG streams, Parquet writer, CLI. Weather generator:
 
 ## Done when
 
-- `uv run python -m coffwe.sim run --seed 42` (default 455 days, 1 Jan 2026 → 31 Mar 2027) produces a season of Parquet truth and Postgres events in well under a minute, identically every time for the same seed.
+- `uv run python -m coffwe.sim run --seed 42` (default 485 days, 1 Jan 2026 → 30 Apr 2027) produces a season of Parquet truth and Postgres events in well under a minute, identically every time for the same seed.
 - Every subsystem has property tests for its physical laws, and weather has a written validation against real data.
 - `PROGRESS.md` updated; committed and pushed.
