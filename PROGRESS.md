@@ -64,9 +64,16 @@ Read this first when resuming in a new terminal/session. For the big picture see
 - Hypothesis found a real bug: the monsoon factor could shrink a wet day below 1 mm; now it scales only the excess.
 - 52 tests pass (property tests for physical limits, rain conservation, determinism; 30-year climate statistics).
 
+**M2 — soil water balance + block microclimate: done (2026-11-25)**
+- `src/coffwe/sim/soil.py`: hourly bucket model for all 10 blocks at once — canopy interception (shade holds more), infiltration vs runoff (soil Ksat, halved on steep slopes), Priestley–Taylor ET with FAO-56 water-stress coefficient, drainage above field capacity. Soil properties per soil type in `SOIL_TYPES`.
+- Block microclimate: lapse-rate + shade cooling air temperature, RH recomputed from constant vapour pressure, lagged soil temperature, leaf wetness (rain-wet canopy or dew at high RH). Column names match the field-station sensor measurements for Phase 3.
+- Engine now has a real hourly loop; writes `block_hourly` (87,600 rows/yr) beside `weather_hourly`. A year runs in ~0.6 s. Irrigation is a `step(..., irrigation=)` hook, unused until the blossom/dry-season irrigation logic (M3) and Phase 8 valves.
+- Year 1 (seed 42): ET0 1,551 mm; shaded blocks ET ~950–980 mm; thin rocky B5/B9 lose ~43% of rain to runoff and hit wilting point by March; open-sun B10 ~20% fewer leaf-wet hours than shaded B8.
+- Tests: exact water conservation and physical bounds under random weather (Hypothesis); shade/slope/lapse effects; analytic cloudburst steady state. 63 tests pass.
+
 ## Not done yet — the exact next steps
 
-**Phase 2 M2 — soil water balance** per block, hourly (see plan): interception by shade, infiltration/runoff by slope, storage by soil type, evapotranspiration, drainage, leaf-wetness hours, irrigation hook. Then M3 coffee phenology.
+**Phase 2 M3 — coffee phenology & yield** (see plan): blossom triggered by ≥ ~25 mm showers after a dry spell (and blossom irrigation if showers fail), cherry development by thermal time, water-stress effects on fruit set, daily ripe-cherry pool per block per variety.
 
 ## Open decisions already made (don't re-ask)
 
