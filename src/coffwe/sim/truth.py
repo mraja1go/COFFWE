@@ -50,11 +50,18 @@ class TruthStore:
         return cls(run_dir)
 
     def write(self, dataset: str, df: pd.DataFrame) -> None:
-        """Write a time-indexed frame, partitioned by the index's year and month."""
+        """Write a time-indexed frame, partitioned by the index's year and month.
+
+        Always *replaces* the dataset: a partitioned write into an existing folder would
+        otherwise add new files beside the old ones, silently duplicating every row.
+        """
+        target = self.run_dir / dataset
+        if target.exists():
+            shutil.rmtree(target)
         ts = df.index
         out = df.reset_index()
         out["year"], out["month"] = ts.year, ts.month
-        out.to_parquet(self.run_dir / dataset, partition_cols=["year", "month"], index=False)
+        out.to_parquet(target, partition_cols=["year", "month"], index=False)
 
     def read(self, dataset: str) -> pd.DataFrame:
         df = pd.read_parquet(self.run_dir / dataset)

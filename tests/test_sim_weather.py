@@ -175,3 +175,12 @@ def test_weather_is_continuous_across_new_year():
     jumps = w["air_temperature"].diff().abs()
     midnight = w.index.get_loc(pd.Timestamp("2027-01-01", tz=C.TIMEZONE))
     assert jumps.iloc[midnight] <= jumps.drop(jumps.index[midnight]).max()
+
+
+def test_rewriting_a_dataset_replaces_it(tmp_path):
+    store = TruthStore.create(tmp_path, "rewrite")
+    idx = pd.date_range("2026-01-01", periods=48, freq="h", tz=C.TIMEZONE, name="ts")
+    store.write("x", pd.DataFrame({"v": 1.0}, index=idx))
+    store.write("x", pd.DataFrame({"v": 2.0}, index=idx))  # e.g. `feed observe` run twice
+    back = store.read("x")
+    assert len(back) == 48 and (back["v"] == 2.0).all()

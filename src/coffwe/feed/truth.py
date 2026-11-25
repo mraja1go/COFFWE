@@ -41,9 +41,17 @@ def all_sensors() -> list[SensorRef]:
     for st in STATIONS:
         for m in st.measurements:
             unit, lo, hi = MEASUREMENTS[m]
-            refs.append(SensorRef(f"{st.code}-{m}", st.code, st.site_code, m, unit,
-                                  None if lo is None else float(lo),
-                                  None if hi is None else float(hi)))  # fmt: skip
+            refs.append(
+                SensorRef(
+                    f"{st.code}-{m}",
+                    st.code,
+                    st.site_code,
+                    m,
+                    unit,
+                    None if lo is None else float(lo),
+                    None if hi is None else float(hi),
+                )
+            )
     return refs
 
 

@@ -50,7 +50,7 @@ MODELS: dict[str, SensorModel] = {
     "wind_speed": SensorModel(0.15, 0.03, 0.1, 0, 0.03),
     "solar_radiation": SensorModel(
         2.0, 0.02, 1.0, 0, 0.03, spike_per_reading=0.0002, spike_size=600
-    ),  # fmt: skip
+    ),
     "barometric_pressure": SensorModel(0.1, 0, 0.1, 0.5, 0, 0.003),
     "soil_moisture": SensorModel(0.006, 0, 0.001, 0.02, 0, 0.0003, 0.0015, 24, 0.0003, 0.2),
     "soil_temperature": SensorModel(0.1, 0, 0.1, 0.2, 0, 0.002, 0.001, 12),
@@ -301,8 +301,17 @@ def observe(source: TruthSource, seed: int) -> tuple[pd.DataFrame, pd.DataFrame]
     sent = labels[labels["delivered"]]
     dupes = sent[sent["duplicate"]].copy()
     dupes["delivered_at"] = dupes["delivered_at"] + pd.Timedelta(seconds=5)
-    cols = ["sensor_code", "station_code", "measurement", "unit", "measured_at", "delivered_at",
-            "value", "seq", "battery_v"]  # fmt: skip
+    cols = [
+        "sensor_code",
+        "station_code",
+        "measurement",
+        "unit",
+        "measured_at",
+        "delivered_at",
+        "value",
+        "seq",
+        "battery_v",
+    ]
     messages = (
         pd.concat([sent[cols], dupes[cols]])
         .sort_values(["delivered_at", "sensor_code"], kind="stable")

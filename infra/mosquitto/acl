@@ -1,0 +1,22 @@
+# COFFWE broker access control (Mosquitto ACL). One user per role -- least privilege.
+#
+# Topic tree (see src/coffwe/feed/schema.py):
+#   coffwe/v1/clock                              estate sim clock (retained)
+#   coffwe/v1/clock/set                          clock control commands
+#   coffwe/v1/<site>/<station>/<measurement>     sensor readings
+#   coffwe/v1/<site>/<station>/status            online / offline (retained, last-will)
+#   coffwe/v1/<site>/<station>/cmd/<actuator>    actuator commands (Phase 8)
+
+# Field devices: publish their readings and status, follow the clock, hear commands.
+user devices
+topic write coffwe/v1/+/+/+
+topic read coffwe/v1/clock
+topic read coffwe/v1/+/+/cmd/#
+
+# Ingestion: read everything, write nothing.
+user ingest
+topic read coffwe/v1/#
+
+# Admin (the feed orchestrator, operators): runs the clock, can do anything under v1.
+user admin
+topic readwrite coffwe/v1/#

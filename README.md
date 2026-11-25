@@ -51,6 +51,16 @@ uv run python -m coffwe.sim report         # regenerate docs/phase2-report.md
 uv run python -m coffwe.sim validate-weather   # regenerate docs/weather-validation.md
 ```
 
+Live feed (Mosquitto via Homebrew):
+
+```bash
+uv run python -m coffwe.feed broker setup   # passwords into .env, config into data/mosquitto/
+uv run python -m coffwe.feed broker start   # run the broker (leave it running)
+uv run python -m coffwe.feed observe        # virtual sensors -> observed feed for the latest run
+uv run python -m coffwe.feed run --speed 3600 --hours 24   # replay through MQTT
+uv run python -m coffwe.feed clock --speed 60   # or --pause / --resume, while it runs
+```
+
 ## Task autonomy
 
 - **Built without asking each time:** code, tests, docs, synthetic data, routine refactors — anything inside an already-agreed phase.

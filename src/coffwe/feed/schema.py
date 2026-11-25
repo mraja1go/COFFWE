@@ -34,11 +34,27 @@ class StationStatus(BaseModel):
 
 
 class ClockState(BaseModel):
+    """The estate clock: sim_time was the simulated time at real time wall_epoch.
+
+    Any process computes "now" as sim_time + (time.time() - wall_epoch) * speed (when
+    running) -- so all processes agree without exchanging a message every tick.
+    """
+
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     sim_time: AwareDatetime
     speed: float = Field(gt=0)
     running: bool
+    wall_epoch: float  # Unix time (seconds) at which sim_time held
+
+
+class ClockCommand(BaseModel):
+    """Published on coffwe/v1/clock/set by an operator: change speed, pause, resume."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    speed: float | None = Field(default=None, gt=0)
+    running: bool | None = None
 
 
 def reading_topic(site: str, station: str, measurement: str) -> str:
@@ -50,6 +66,7 @@ def status_topic(site: str, station: str) -> str:
 
 
 CLOCK_TOPIC = f"{TOPIC_ROOT}/clock"
+CLOCK_SET_TOPIC = f"{CLOCK_TOPIC}/set"
 
 
 def parse_reading(payload: bytes | str) -> Reading:
@@ -57,7 +74,9 @@ def parse_reading(payload: bytes | str) -> Reading:
 
 
 __all__ = [
+    "CLOCK_SET_TOPIC",
     "CLOCK_TOPIC",
+    "ClockCommand",
     "ClockState",
     "Reading",
     "StationStatus",

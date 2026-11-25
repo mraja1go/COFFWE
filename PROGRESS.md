@@ -128,7 +128,18 @@ Read this first when resuming in a new terminal/session. For the big picture see
 
 ## Not done yet — the exact next steps
 
-**Phase 3 M2 — Mosquitto + device publishers** (see plan): configure Mosquitto (localhost, password auth), publish the clock (retained), station status with last-will, and replay `observed_messages` per device group paced by the clock; CLI to run the feed at a chosen speed.
+**Phase 3 M2 — Mosquitto + device publishers: done (2026-11-25)**
+- `infra/mosquitto/acl` (committed): least-privilege roles — `devices` publish readings/status and read the clock, `ingest` read-only, `admin` runs the clock. `feed/broker.py`: `broker setup` writes random passwords into `.env` and config/password file into `data/mosquitto/` (localhost only, no anonymous); `broker start` runs Mosquitto in the foreground.
+- `feed/publisher.py`: one MQTT client per station (own client id, retained "online", **last-will "offline"**), four device-group processes (weather, field, process+water, corridor) replaying `observed_messages` paced by the clock; brownouts → offline/online status; catch-up when behind.
+- `feed/runner.py`: the orchestrator owns the clock — retained `coffwe/v1/clock` (sim time + wall anchor, so every process computes the same "now"), live `ClockCommand`s on `coffwe/v1/clock/set`, **ready barrier** (clock starts paused until all groups are loaded and connected — without it, startup at 3600× was hours of backlog).
+- CLI: `python -m coffwe.feed broker setup|start`, `observe`, `run --speed --start --hours`, `clock --speed|--pause|--resume`.
+- Measured: 6 sim-hours at 3600× → 1,566/1,566 readings delivered, 0 late; 2 sim-days at 86,400× → 12,543/12,543 delivered but the field group (≈3k msg/s per process) falls behind — complete but late above ~40,000×.
+- Fixed a latent bug: `TruthStore.write` into an existing dataset *appended* files (running `feed observe` twice would have doubled the feed); writes now replace.
+- 226 tests pass (incl. ACL, delivery completeness, last-will on a crashed station, live speed change, brownout status) — each test module runs its own throwaway broker on a free port.
+
+## Not done yet — the exact next steps
+
+**Phase 3 M3 — TimescaleDB + ingestion** (see plan): `CREATE EXTENSION timescaledb` via migration; `sensor_readings` hypertable (measured_at, received_at, sensor_id, value, quality flags), station status events, continuous aggregates; asyncio (`aiomqtt`) consumer with Pydantic validation, de-duplication, range flags, late-data handling; station status → `sensor_stations.status`. Remember to migrate `coffwe_test` too.
 
 ## Open decisions already made (don't re-ask)
 
