@@ -79,9 +79,26 @@ Read this first when resuming in a new terminal/session. For the big picture see
 - Nothing picks yet (M4), so every ripe cherry eventually falls in this milestone.
 - 78 tests pass (blossom rules, bud-share bounds via Hypothesis, crop conservation, fall timing, warmth/stress/pollination effects, manager behaviour, end-to-end harvest calendar).
 
+**M4 — harvest & processing → Postgres: done (2026-11-25)**
+- `src/coffwe/sim/harvest.py`: seasonal pickers (1 Nov–28 Feb, ~90% attendance, no Sundays/heavy rain) then the 5 permanent field workers for the March tail; pick rate by variety (AR 45 / RB 60 kg/day), slope, ripe load per plant and personal skill; `CoffeeModel.pick` strips ripe + over-ripe proportionally. One batch per (block, variety, day); receiving weight 0.5–2% under field weights. Washed (AR): processing → 2 days → drying (8 good-day credits) → stored, outturn 20%; natural (RB): drying (14 credits), outturn 42%. Rain/cloud slow drying. Dispatch on the 1st/15th; bags issued per dispatch lot; daily pulper diesel + lorry trips.
+- `management.py`: `plan_picking` (crews to the units with the most ripe/over-ripe, largest-remainder when short-handed) and `reorder` (top up below reorder level).
+- `src/coffwe/sim/db.py` + `run --db`: reseeds Postgres, then writes `harvest_batches`, `harvest_picks`, `inventory_movements` for days ≥ 25 Nov 2026 (code → id translation in one place).
+- Seed 42: ~80 of 83 t picked (Jan peak ~35 kg/picker-day), ~950 batches / 3,250 picks / 121 ledger lines in Postgres; ~412 jute bags, 1 diesel reorder.
+- **Test database `coffwe_test`** (local, migrated to head) — the Postgres integration test writes there, never to `coffwe_dev`. Re-migrate it after new migrations: `DATABASE_URL=postgresql+psycopg://raja@localhost:5432/coffwe_test uv run alembic upgrade head`.
+- 92 tests pass (crop accounting, picking rules, who-picks-when, batch weights, processing times/outturns, status/date consistency, ledger signs & non-negative stock, bag counts, determinism, Postgres write).
+
+**M5 — livestock: done (2026-11-25)**
+- `src/coffwe/sim/livestock.py`: starts from the seeded history on 25 Nov (no spin-up) — lactating Kaveri/Tunga/Gowri, pregnant Ganga/Lakshmi, cycling heifers, vaccine due dates, 23 live colonies, queens, empty HV-22.
+- Cattle: Wood's lactation curve (MG peak ~3 L/d, JX ~11 L/d at day ~50–57), twice-daily milkings (55/45), fat by breed and stage; 21-day heats, 80% detection, Bhima serves eligible cows (60 d postpartum / heifers ≥450 d), re-served on return to heat, pregnancy check at 60 d, dry-off 60 d before calving or at end of lactation, calving creates a new calf (dam + sire linked), rare abortion; vaccinations on due dates (calves join at 120 d), brucellosis for female calves, quarterly deworming, monthly weigh-ins (calves grow), mastitis with milk withdrawal, occasional other illness.
+- Bees: colony strength (frames) and honey stores driven by nectar flows, rain (no foraging) and **the simulated coffee bloom** (coffee flow boosted while flowers are open); absconding (likelier when weak), sacbrood collapse (Jan–Apr), queen supersedure; keeper harvests on Saturdays when stores ≥1.8 kg (≥30 days apart) and re-stocks long-empty boxes by splitting a ≥5-frame colony during a flow.
+- `db.write_livestock`: inserts calves, health/breeding events, milkings, honey harvests, new colonies/queens; **updates** seeded colonies/queens that ended (no duplicates); keeps `hives.super_count` in step.
+- Seed 42 (25 Nov → 31 Mar): 1 calf (Kapila), 952 milkings, 89 health + 23 breeding events, 23 honey harvests (~50 kg in the coffee flow), 2 colonies lost and 3 boxes re-stocked.
+- Tests share one coffwe_test run via `tests/conftest.py`. 142 tests pass (history → state, Wood peak, milking rules, breeding rules, calving records, dry-off, conception per service, vaccination ages, checkups, long-run mastitis rate, apiary invariants, Postgres write).
+- **Open issue for Phase 3/4:** `hive_overview` uses `CURRENT_DATE` (real clock) but Postgres now holds simulated events through Mar 2027, so durations for future-dated rows come out negative. Needs a decision on the twin's notion of "now" (sim clock vs wall clock).
+
 ## Not done yet — the exact next steps
 
-**Phase 2 M4 — harvest & processing** (see plan): daily picking plan (pickers → blocks), pick rates, `harvest_batches` + `harvest_picks` written to Postgres from 25 Nov, washed vs natural processing, status progression and dried outputs, jute bags/fuel drawn from inventory.
+**Phase 2 M6 — pests & disease** (see plan): coffee berry borer by degree-days (pheromone trap counts as the observable), leaf rust infection from leaf-wetness hours + temperature, IPM interventions drawing biocontrols from inventory. Then M7 (machines, full-year run, validation report).
 
 ## Open decisions already made (don't re-ask)
 

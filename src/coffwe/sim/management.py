@@ -8,18 +8,25 @@ policy plays the estate manager, using standard Karnataka practice:
   failed), run the sprinklers BLOSSOM_IRRIGATION_MM to force the blossom.
 * Backing irrigation -- if a blossom was forced and no meaningful rain follows within
   BACKING_AFTER_DAYS, irrigate once more so the flowers set fruit.
+* Picking plan -- each picking day, send the available pickers to the blocks with the
+  most ripe (and especially over-ripe) cherry.
+* Reordering -- restock consumables that fall below their reorder level.
 
 Decisions are taken at the start of each day and applied by the soil model as
 irrigation over the morning hours (when the sprinkler crew works).
 """
 
+import math
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 import numpy as np
 
-from coffwe.estate_data import BLOCKS
+from coffwe.estate_data import BLOCKS, INVENTORY_ITEMS, apportion
 from coffwe.sim.coffee import CoffeeModel
+from coffwe.sim.harvest import NO_PICKING_RAIN_MM, HarvestModel, InventoryLedger
+
+MIN_PICKABLE_KG_PER_PLANT = 0.06  # less than this and a picking round isn't worth it
 
 BLOSSOM_IRRIGATION_MM = 30.0
 BACKING_IRRIGATION_MM = 25.0
@@ -76,3 +83,49 @@ class BaselineManagement:
         if hour in IRRIGATION_HOURS:
             return plan_mm / len(IRRIGATION_HOURS)
         return np.zeros_like(plan_mm)
+
+    # --- harvest -----------------------------------------------------------------
+
+    def plan_picking(
+        self, day: date, coffee: CoffeeModel, harvest: HarvestModel, rain_mm: float
+    ) -> dict[str, list[str]]:
+        """Send today's pickers where the ripe crop is.
+
+        A unit is worth a round once it holds MIN_PICKABLE_KG_PER_PLANT of red or
+        over-ripe cherry. Each such unit "needs" enough pickers to clear it today;
+        if there aren't enough pickers, they're shared out in proportion to need
+        (largest-remainder, so every picker is placed). Over-ripe cherry counts
+        double -- it falls soon, so it's the most urgent.
+        """
+        if rain_mm > NO_PICKING_RAIN_MM:
+            return {}
+        pickers = harvest.available_pickers(day)
+        if not pickers:
+            return {}
+        need: dict[str, int] = {}
+        for u in coffee.units:
+            plants = harvest.plants[u.code]
+            if (u.ripe_kg + u.overripe_kg) / plants < MIN_PICKABLE_KG_PER_PLANT:
+                continue
+            urgent_kg = u.ripe_kg + 2 * u.overripe_kg
+            need[u.code] = max(1, math.ceil(urgent_kg / harvest.expected_rate(u.code, coffee)))
+        if not need:
+            return {}
+        if sum(need.values()) > len(pickers):
+            need = {k: v for k, v in apportion(len(pickers), need).items() if v}
+        order = iter(pickers)
+        return {code: [next(order) for _ in range(n)] for code, n in need.items()}
+
+    # --- inventory ---------------------------------------------------------------
+
+    def reorder(self, day: date, ledger: InventoryLedger, from_day: date) -> None:
+        """Top any item that fell below its reorder level back up to its opening stock."""
+        if day < from_day:
+            return
+        for item in INVENTORY_ITEMS:
+            if item.reorder_level is None:
+                continue
+            on_hand = ledger.on_hand[item.code]
+            if on_hand < float(item.reorder_level):
+                ledger.record(day, item.code, float(item.opening_balance) - on_hand, "purchase",
+                              notes="reorder: below reorder level")  # fmt: skip

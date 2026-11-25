@@ -5,7 +5,9 @@
         management decides today's irrigation (start of day)
         24 x hourly: soil + microclimate for every block
         daily: coffee phenology from the day's rain, warmth and water stress
-        (M4+) harvest, livestock, pests, machines
+        daily: picking plan -> picking -> processing -> reorders
+        daily (from EVENTS_START): cattle herd, then the apiary
+        (M6+) pests, machines
 
 Subsystems added in later milestones slot into the day loop below.
 """
@@ -19,6 +21,8 @@ import pandas as pd
 from coffwe.estate_data import BLOCKS
 from coffwe.sim import soil as soil_mod
 from coffwe.sim.coffee import CoffeeModel
+from coffwe.sim.harvest import HarvestModel
+from coffwe.sim.livestock import BeeModel, CattleModel
 from coffwe.sim.management import BaselineManagement
 from coffwe.sim.rng import stream
 from coffwe.sim.truth import DEFAULT_ROOT, RunInfo, TruthStore, run_id_for
@@ -29,6 +33,7 @@ from coffwe.sim.weather import generate_weather
 SPINUP_START = date(2026, 1, 1)
 EVENTS_START = date(2026, 11, 25)
 DEFAULT_DAYS = (date(2027, 4, 1) - SPINUP_START).days  # through the 2026-27 harvest
+BLOOM_DAYS = 4  # coffee flowers stay open (and full of nectar) ~3-4 days
 
 
 def run(
@@ -36,6 +41,8 @@ def run(
     start: date = SPINUP_START,
     days: int = DEFAULT_DAYS,
     root: Path = DEFAULT_ROOT,
+    write_db: bool = False,
+    session_factory=None,  # defaults to the dev database (coffwe.db.base.SessionLocal)
 ) -> TruthStore:
     end = start + timedelta(days=days)
     store = TruthStore.create(root, run_id_for(seed, start, end))
@@ -46,9 +53,14 @@ def run(
 
     soil = soil_mod.SoilModel()
     coffee = CoffeeModel(stream(seed, "coffee"))
+    harvest = HarvestModel(stream(seed, "harvest"), ledger_from=EVENTS_START)
     manager = BaselineManagement()
     block_hours: list[dict[str, np.ndarray]] = []
     coffee_rows: list[dict] = []
+    harvest_rows: list[dict] = []
+    cattle: CattleModel | None = None
+    bees: BeeModel | None = None
+    herd_rows: list[dict] = []
 
     for d in range(days):
         day = start + timedelta(days=d)
@@ -83,12 +95,68 @@ def run(
         ):
             coffee_rows.append({"date": pd.Timestamp(day), **row})
 
+        # Harvest: the crew sees the day's weather; the drying yard feels it.
+        mast_rain = float(wx["rainfall"][d * 24 : (d + 1) * 24].sum())
+        mast_solar = float(wx["solar_radiation"][d * 24 : (d + 1) * 24].mean())
+        crews = manager.plan_picking(day, coffee, harvest, mast_rain)
+        for row in harvest.pick_day(day, crews, coffee):
+            harvest_rows.append({"date": pd.Timestamp(day), **row})
+        harvest.process_day(day, mast_rain, mast_solar)
+        manager.reorder(day, harvest.ledger, EVENTS_START)
+
+        # Livestock takes over from the seeded history on EVENTS_START.
+        if day == EVENTS_START:
+            cattle = CattleModel(stream(seed, "cattle"), day)
+            bees = BeeModel(stream(seed, "bees"), day)
+        if cattle is not None and bees is not None:
+            cattle.on_day(day)
+            herd_rows += [
+                {"date": pd.Timestamp(day), "cattle_code": a.code, "lactating": a.lactating,
+                 "pregnant": a.pregnant, "days_in_milk": a.days_in_milk(day) if a.lactating else 0,
+                 "weight_kg": round(a.weight_kg, 1)}
+                for a in cattle.herd.values()
+            ]  # fmt: skip
+            blooming = sum(
+                1 for b in coffee.blossom_log if 0 <= (day - b["opened_on"]).days < BLOOM_DAYS
+            ) / len(coffee.units)
+            week_rain = float(wx["rainfall"][max(0, (d - 6) * 24) : (d + 1) * 24].sum())
+            bees.on_day(day, mast_rain, min(blooming, 1.0), week_rain)
+
     store.write("block_hourly", soil_mod.to_frame(weather.index, block_hours))
     store.write("coffee_daily", pd.DataFrame(coffee_rows).set_index("date").round(3))
     datasets = ["weather_hourly", "block_hourly", "coffee_daily"]
+    batch_log = [
+        {k: v for k, v in vars(b).items() if k != "picks"} | {"pickers": len(b.picks)}
+        for b in harvest.batches
+    ]
+    pick_log = [
+        {"harvested_on": b.harvested_on, "batch_code": b.code, "worker_code": w, "kg": kg}
+        for b in harvest.batches
+        for w, kg in b.picks
+    ]
+    movement_log = [vars(m) for m in harvest.ledger.movements]
+    livestock_logs = []
+    if cattle is not None and bees is not None:
+        colony_log = [
+            {k: v for k, v in vars(c).items() if k != "old_queens"} for c in bees.colonies
+        ]
+        livestock_logs = [
+            ("milkings", cattle.milkings, "day"),
+            ("cattle_health_events", cattle.health, "day"),
+            ("cattle_breeding_events", cattle.breeding, "day"),
+            ("herd_daily", herd_rows, "date"),
+            ("hive_daily", bees.daily, "day"),
+            ("honey_harvests", bees.harvests, "day"),
+            ("bee_colonies", colony_log, "established_on"),
+        ]
     for name, log, key in (
         ("coffee_blossoms", coffee.blossom_log, "opened_on"),
         ("irrigation_log", manager.log, "date"),
+        ("harvest_daily", harvest_rows, "date"),
+        ("harvest_batches", batch_log, "harvested_on"),
+        ("harvest_picks", pick_log, "harvested_on"),
+        ("inventory_movements", movement_log, "day"),
+        *livestock_logs,
     ):
         if log:
             frame = pd.DataFrame(log)
@@ -106,6 +174,21 @@ def run(
             datasets=datasets,
         )
     )
+
+    if write_db:
+        # Imported here so the simulator itself never needs a database to run.
+        from coffwe.seed import seed as reseed
+        from coffwe.sim.db import write_events, write_livestock
+
+        if session_factory is None:
+            from coffwe.db.base import SessionLocal as session_factory
+        with session_factory() as session:
+            reseed(session)  # baseline state the run started from (commits)
+            counts = write_events(session, harvest.batches, harvest.ledger.movements, EVENTS_START)
+            if cattle is not None and bees is not None:
+                counts |= write_livestock(session, cattle, bees)
+            session.commit()
+        store.db_counts = counts
     return store
 
 

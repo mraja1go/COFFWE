@@ -38,6 +38,7 @@ def run_id_for(seed: int, start: date, end: date) -> str:
 class TruthStore:
     def __init__(self, run_dir: Path) -> None:
         self.run_dir = run_dir
+        self.db_counts: dict[str, int] | None = None  # set when a run writes to Postgres
 
     @classmethod
     def create(cls, root: Path, run_id: str) -> TruthStore:

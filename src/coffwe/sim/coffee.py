@@ -144,6 +144,25 @@ class CoffeeModel:
             u.buds_remaining = 1.0
             u.year_factor = float(self.rng.lognormal(0, YEAR_VARIATION_SD))
 
+    def unit(self, code: str) -> Unit:
+        """Look up a unit by its code, e.g. "B4-AR"."""
+        return next(u for u in self.units if u.code == code)
+
+    def pick(self, code: str, kg: float) -> tuple[float, float]:
+        """Selective picking: take up to `kg` of ripe + over-ripe cherry off the branches.
+
+        Pickers strip everything red or darker from the branches they work, so every age
+        in the pool is reduced by the same fraction. Returns (ripe_kg, overripe_kg) picked.
+        """
+        u = self.unit(code)
+        available = float(u.pool.sum())
+        if available <= 0 or kg <= 0:
+            return 0.0, 0.0
+        fraction = min(kg / available, 1.0)
+        taken = u.pool * fraction
+        u.pool = u.pool - taken
+        return float(taken[:RIPE_DAYS].sum()), float(taken[RIPE_DAYS:].sum())
+
     def unblossomed(self, block_code: str, variety: str | None = None) -> bool:
         """True if this block (variety) hasn't had its main blossom yet this year."""
         return any(
