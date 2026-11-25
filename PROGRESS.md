@@ -1,4 +1,4 @@
-# Progress checkpoint — 2026-11-24
+# Progress checkpoint — 2026-11-25
 
 Read this first when resuming in a new terminal/session. For the big picture see `README.md`; for the full original roadmap see `docs/plan-phase-0.md`; for the estate itself see `docs/estate-concept.md`.
 
@@ -55,9 +55,18 @@ Read this first when resuming in a new terminal/session. For the big picture see
 - Caveat: `hive_overview` uses `CURRENT_DATE` (real clock); the simulator may need an as-of date.
 - Detail recorded in `docs/estate-concept.md` v1.3 ("Cattle herd", "Apiary").
 
+**Phase 2 — simulation engine: in progress.** Plan: `docs/plan-phase-2.md` (decisions: hourly physics / daily biology; synthetic weather validated against real; Parquet ground truth in `data/sim/<run_id>/`, events in Postgres; coffee chain first; physics spin-up from 2026-01-01, events from 2026-11-25).
+
+**M1 — engine skeleton + weather: done (2026-11-25)**
+- `src/coffwe/sim/`: `climate.py` (all parameters), `weather.py` (Markov-chain rain occurrence, gamma amounts, yearly monsoon strength, AR(1) temperature, cosine diurnal curve, solar geometry, consistent RH/wind/pressure), `rng.py` (per-subsystem seeded streams), `truth.py` (Parquet store, partitioned by year/month), `engine.py`, `validation.py`, CLI `__main__.py`.
+- `uv run python -m coffwe.sim run` — a year of hourly weather in ~0.1 s; `uv run python -m coffwe.sim validate-weather` — downloads 10 years of real reanalysis (cached in `data/reference/`) and writes `docs/weather-validation.md`.
+- Calibration v2 after validation: mean-preserving interpolation (plain interpolation shaved the monsoon peak ~5%), centred wet-day humidity, monthly clearness, more transition-month persistence, yearly monsoon-strength factor (fixed too-small year-to-year variability).
+- Hypothesis found a real bug: the monsoon factor could shrink a wet day below 1 mm; now it scales only the excess.
+- 52 tests pass (property tests for physical limits, rain conservation, determinism; 30-year climate statistics).
+
 ## Not done yet — the exact next steps
 
-**Phase 2 — simulation engine**, starting with its own short planning pass: what the simulator generates first (weather → soil moisture → plant/pest state → worker activity → harvest batches + inventory movements), time-step size, and how it writes into the Phase 1 tables.
+**Phase 2 M2 — soil water balance** per block, hourly (see plan): interception by shade, infiltration/runoff by slope, storage by soil type, evapotranspiration, drainage, leaf-wetness hours, irrigation hook. Then M3 coffee phenology.
 
 ## Open decisions already made (don't re-ask)
 
