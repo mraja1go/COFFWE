@@ -23,6 +23,7 @@ from coffwe.estate_data import BLOCKS
 from coffwe.sim import soil as soil_mod
 from coffwe.sim.coffee import CoffeeModel
 from coffwe.sim.harvest import HarvestModel
+from coffwe.sim.hydrology import simulate_water
 from coffwe.sim.livestock import BeeModel, CattleModel
 from coffwe.sim.machines import (
     PICKUP_DAILY_KM,
@@ -36,6 +37,7 @@ from coffwe.sim.pests import PestModel, rust_temperature_weight
 from coffwe.sim.rng import stream
 from coffwe.sim.truth import DEFAULT_ROOT, RunInfo, TruthStore, run_id_for
 from coffwe.sim.weather import generate_weather_for_seed
+from coffwe.sim.wildlife import simulate_wildlife
 
 # Physics spins up from New Year so the 2026 blossom showers and cherry development
 # exist by harvest time; Postgres events begin the day after the seeded history ends.
@@ -190,9 +192,14 @@ def run(
                     ledger.record(day, item, -qty, "used", notes=f"repair of {asset}")
         manager.reorder(day, harvest.ledger, EVENTS_START)
 
-    store.write("block_hourly", soil_mod.to_frame(weather.index, block_hours))
+    block_frame = soil_mod.to_frame(weather.index, block_hours)
+    store.write("block_hourly", block_frame)
+    # Truth for the gauges and corridor sensors (Phase 3): streams, reservoir, wildlife.
+    store.write("water_hourly", simulate_water(block_frame))
+    wildlife, elephant_visits = simulate_wildlife(start, end, stream(seed, "wildlife"))
+    store.write("wildlife_hourly", wildlife)
     store.write("coffee_daily", pd.DataFrame(coffee_rows).set_index("date").round(3))
-    datasets = ["weather_hourly", "block_hourly", "coffee_daily"]
+    datasets = ["weather_hourly", "block_hourly", "water_hourly", "wildlife_hourly", "coffee_daily"]
     batch_log = [
         {k: v for k, v in vars(b).items() if k != "picks"} | {"pickers": len(b.picks)}
         for b in harvest.batches
@@ -230,6 +237,7 @@ def run(
         ("asset_daily", machines.daily, "day"),
         ("asset_events", machines.events, "day"),
         ("organics_log", organics.log, "day"),
+        ("elephant_visits", elephant_visits, "start"),
         *livestock_logs,
     ):
         if log:

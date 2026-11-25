@@ -34,7 +34,7 @@ uv run pytest        # run the test suite
 uv run pre-commit install   # wire up git hooks (ruff + basic hygiene) once per clone
 ```
 
-Database (local Postgres 17, `DATABASE_URL` in `.env`, see `.env.example`):
+Database (local PostgreSQL 18 + TimescaleDB via Homebrew, `DATABASE_URL` in `.env`, see `.env.example`):
 
 ```bash
 uv run alembic upgrade head      # create / migrate the schema

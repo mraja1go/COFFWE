@@ -115,9 +115,20 @@ Read this first when resuming in a new terminal/session. For the big picture see
 - 195 tests pass, incl. engine-wide laws across 3 weather years (water, cherry and stock conservation; batch life-cycle order; failure→repair pairing; seasonal calendars; determinism), a KS test that simulated lifetimes are Weibull, and the Postgres write of the maintenance log.
 - Lesson: a few test bounds had been tuned to one seed's weather year; the new weather exposed it, and the multi-seed engine tests now guard against that.
 
+**Phase 3 — live feed: in progress.** Plan: `docs/plan-phase-3.md` (decisions: one sim clock with speed control as the estate's "now"; replay Parquet truth behind a `TruthSource` interface, live simulator in Phase 8; GCP Pub/Sub bridge last, quota-guarded).
+
+**Environment change (2026-11-25):** Postgres moved **17 → 18** because the Homebrew TimescaleDB build (`timescale/tap/timescaledb` 2.32.1, formula trusted individually) requires 18. `postgresql@18` runs on port 5432 with `shared_preload_libraries = 'timescaledb'` (original conf saved as `postgresql.conf.before-timescaledb`); `postgresql@17` is stopped and unlinked but still installed as a fallback. Both databases were recreated and rebuilt from the repo (migrations + seed + `sim run --db`) with identical results. Mosquitto 2.1.4 installed (not yet configured/running).
+
+**Phase 3 M1 — sim clock + virtual sensors: done (2026-11-25)**
+- New ground truth in the simulator: `sim/hydrology.py` (quick-flow + baseflow linear reservoirs → Stream 1/2 flow; check-dam reservoir water balance with irrigation withdrawals, seepage, spill and recorded **shortfall** when irrigation outruns storage) and `sim/wildlife.py` (nocturnal background passes + seasonal elephant visits along the corridor). Datasets `water_hourly`, `wildlife_hourly`, `elephant_visits`.
+- `src/coffwe/feed/`: `clock.py` (SimClock with speed/pause, ManualClock), `truth.py` (`TruthSource` + `ParquetTruthSource`: every one of the 65 sensors at 15-min reporting — interpolated state variables, amounts split to preserve totals), `devices.py` (per-sensor bias/gain, bounded drift, noise, resolution, stuck/spike faults, tipping-bucket rain gauge with clogging, rain detector false alarms/misses, motion misses/false triggers; per-station solar battery with brownouts and a Gilbert–Elliott radio link with store-and-forward late bursts, losses and duplicates), `schema.py` (Pydantic wire format + topic scheme), `observed.py` (writes `observed_messages` + `observed_labels` next to the truth).
+- Seed 42: 3.03M readings in ~22 s; 98.6% on time, 1.3% late (bursts up to ~12 h), 0.08% lost; ~6,300 labelled faults. No brownouts in this monsoon (batteries sag to 3.74 V in July) — tests force one with a dull spell.
+- Design note for Phase 8: devices compute the observed stream offline per sensor (vectorized); live mode will need an incremental version behind the same interfaces.
+- 216 tests pass.
+
 ## Not done yet — the exact next steps
 
-**Phase 3 — live feed / integration layer**, starting with its own planning pass (see `docs/artifacts/system-architecture.html`, layers 02–05): virtual sensors that sample the Parquet ground truth with realistic noise, drift, dropouts and late readings; MQTT broker; ingestion into a time-series store (TimescaleDB on the same Postgres); bridge to GCP Pub/Sub on the free tier. Decide there the twin's notion of "now" (sim clock vs wall clock) — see the `hive_overview` open issue above.
+**Phase 3 M2 — Mosquitto + device publishers** (see plan): configure Mosquitto (localhost, password auth), publish the clock (retained), station status with last-will, and replay `observed_messages` per device group paced by the clock; CLI to run the feed at a chosen speed.
 
 ## Open decisions already made (don't re-ask)
 

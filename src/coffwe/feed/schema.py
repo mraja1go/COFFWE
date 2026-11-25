@@ -1,0 +1,68 @@
+"""The wire format: what a virtual device publishes, validated with Pydantic.
+
+The same model is used on both sides -- devices build messages with it, ingestion
+parses incoming payloads with it -- so a malformed message is caught at the boundary
+instead of corrupting the database.
+"""
+
+from datetime import datetime
+from typing import Literal
+
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+
+TOPIC_ROOT = "coffwe/v1"
+
+
+class Reading(BaseModel):
+    """One sensor reading, as published on coffwe/v1/<site>/<station>/<measurement>."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    sensor: str = Field(min_length=3, max_length=40)  # "FS-B3-soil_moisture"
+    measured_at: AwareDatetime  # the device's own timestamp, in sim time
+    value: float  # may be out of physical range: ingestion flags it, never drops it
+    unit: str = Field(max_length=10)
+    seq: int = Field(ge=0)  # per-device counter: gaps reveal lost messages
+    battery_v: float | None = Field(default=None, ge=0, le=6)
+
+
+class StationStatus(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    station: str
+    state: Literal["online", "offline"]
+
+
+class ClockState(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    sim_time: AwareDatetime
+    speed: float = Field(gt=0)
+    running: bool
+
+
+def reading_topic(site: str, station: str, measurement: str) -> str:
+    return f"{TOPIC_ROOT}/{site}/{station}/{measurement}"
+
+
+def status_topic(site: str, station: str) -> str:
+    return f"{TOPIC_ROOT}/{site}/{station}/status"
+
+
+CLOCK_TOPIC = f"{TOPIC_ROOT}/clock"
+
+
+def parse_reading(payload: bytes | str) -> Reading:
+    return Reading.model_validate_json(payload)
+
+
+__all__ = [
+    "CLOCK_TOPIC",
+    "ClockState",
+    "Reading",
+    "StationStatus",
+    "datetime",
+    "parse_reading",
+    "reading_topic",
+    "status_topic",
+]
