@@ -61,7 +61,7 @@ class TruthStore:
         # Partition columns come back as categories; drop them, restore the time index.
         df = df.drop(columns=["year", "month"])
         time_col = df.columns[0]
-        return df.sort_values(time_col).set_index(time_col)
+        return df.sort_values(time_col, kind="stable").set_index(time_col)  # keep same-day order
 
     def write_info(self, info: RunInfo) -> None:
         (self.run_dir / "run.json").write_text(json.dumps(asdict(info), indent=2) + "\n")

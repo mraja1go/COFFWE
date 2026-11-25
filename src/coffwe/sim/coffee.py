@@ -60,6 +60,9 @@ RIPE_DAYS = 12  # ripe on the branch...
 OVERRIPE_DAYS = 10  # ...then over-ripe, then it falls
 POLLINATION_RAIN_PENALTY = 0.8
 YEAR_VARIATION_SD = 0.08  # unexplained block-to-block, year-to-year yield variation
+BORER_SUSCEPTIBLE_AFTER_DAYS = 120  # berries harden enough for the borer to enter
+BORER_WEIGHT_LOSS = 0.35  # share of a bored berry's weight lost (bean eaten, early drop)
+RUST_CARRY_OVER = 0.5  # next-year bud loss per unit of leaf area lost to rust
 
 
 def shade_yield_factor(shade_pct: float) -> float:
@@ -137,12 +140,19 @@ class CoffeeModel:
             if b.plantings.get(v)
         ]
         self.blossom_log: list[dict] = []
+        # Hooks set by the pest model (M6); neutral defaults leave the crop untouched.
+        self.borer_infestation: dict[str, float] = {}  # unit -> share of berries bored
+        self.leaf_health: dict[str, float] = {}  # unit -> 1 healthy .. lower = rust-damaged
         self._new_bud_year(self.units)
 
     def _new_bud_year(self, units: list[Unit]) -> None:
         for u in units:
             u.buds_remaining = 1.0
-            u.year_factor = float(self.rng.lognormal(0, YEAR_VARIATION_SD))
+            # Next season's flower buds form on this season's leaves: a bush stripped by
+            # leaf rust sets fewer of them (rust's main yield damage comes a year later).
+            leaves = self.leaf_health.get(u.code, 1.0)
+            carry_over = 1 - RUST_CARRY_OVER * (1 - leaves)
+            u.year_factor = float(self.rng.lognormal(0, YEAR_VARIATION_SD)) * carry_over
 
     def unit(self, code: str) -> Unit:
         """Look up a unit by its code, e.g. "B4-AR"."""
@@ -162,6 +172,17 @@ class CoffeeModel:
         taken = u.pool * fraction
         u.pool = u.pool - taken
         return float(taken[:RIPE_DAYS].sum()), float(taken[RIPE_DAYS:].sum())
+
+    def susceptible_kg(self, code: str) -> float:
+        """Cherry a berry borer can breed in: berries past ~120 days on the branch
+        (hard enough to bore) plus everything ripe or over-ripe."""
+        u = self.unit(code)
+        green = sum(
+            c.final_kg() * (1 - c.ripened_share)
+            for c in u.cohorts
+            if c.days_since_open >= BORER_SUSCEPTIBLE_AFTER_DAYS
+        )
+        return green + float(u.pool.sum())
 
     def unblossomed(self, block_code: str, variety: str | None = None) -> bool:
         """True if this block (variety) hasn't had its main blossom yet this year."""
@@ -253,7 +274,9 @@ class CoffeeModel:
                         ) * (c.pollination_penalty)
                 lo, hi = FILL_WINDOW_DAYS
                 if lo <= c.days_since_open <= hi:
-                    c.stress_fill.append(float(water_stress[i]))
+                    # Rust-damaged, defoliated bushes fill their berries less, like drought.
+                    leaves = self.leaf_health.get(u.code, 1.0)
+                    c.stress_fill.append(float(water_stress[i]) * leaves)
                 share = float(
                     norm.cdf(c.degree_days, p.ripening_dd, RIPENING_SPREAD * p.ripening_dd)
                 )
@@ -261,6 +284,9 @@ class CoffeeModel:
                 c.ripened_share = max(share, c.ripened_share)
             # Fully ripened cohorts have handed all their crop to the ripe pool.
             u.cohorts = [c for c in u.cohorts if c.ripened_share < 0.9999]
+            # Bored berries lose bean weight (and many drop early): lost before picking.
+            borer_loss = ripened_today * BORER_WEIGHT_LOSS * self.borer_infestation.get(u.code, 0)
+            ripened_today -= borer_loss
 
             # --- ripe pool ages one day; the oldest over-ripe cherries fall
             fallen = float(u.pool[-1])
@@ -276,6 +302,7 @@ class CoffeeModel:
                     "ripe_kg": u.ripe_kg,
                     "overripe_kg": u.overripe_kg,
                     "fallen_kg": fallen,
+                    "borer_loss_kg": borer_loss,
                 }
             )
         return rows

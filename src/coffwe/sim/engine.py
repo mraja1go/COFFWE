@@ -7,7 +7,8 @@
         daily: coffee phenology from the day's rain, warmth and water stress
         daily: picking plan -> picking -> processing -> reorders
         daily (from EVENTS_START): cattle herd, then the apiary
-        (M6+) pests, machines
+        daily: pests & disease, then the manager's IPM response
+        (M7) machines
 
 Subsystems added in later milestones slot into the day loop below.
 """
@@ -24,6 +25,7 @@ from coffwe.sim.coffee import CoffeeModel
 from coffwe.sim.harvest import HarvestModel
 from coffwe.sim.livestock import BeeModel, CattleModel
 from coffwe.sim.management import BaselineManagement
+from coffwe.sim.pests import PestModel, rust_temperature_weight
 from coffwe.sim.rng import stream
 from coffwe.sim.truth import DEFAULT_ROOT, RunInfo, TruthStore, run_id_for
 from coffwe.sim.weather import generate_weather
@@ -43,9 +45,11 @@ def run(
     root: Path = DEFAULT_ROOT,
     write_db: bool = False,
     session_factory=None,  # defaults to the dev database (coffwe.db.base.SessionLocal)
+    ipm: bool = True,  # False = counterfactual estate with no pest management at all
 ) -> TruthStore:
     end = start + timedelta(days=days)
-    store = TruthStore.create(root, run_id_for(seed, start, end))
+    run_id = run_id_for(seed, start, end) + ("" if ipm else "-noipm")
+    store = TruthStore.create(root, run_id)
 
     weather = generate_weather(start, end, stream(seed, "weather"))
     store.write("weather_hourly", weather)
@@ -54,7 +58,9 @@ def run(
     soil = soil_mod.SoilModel()
     coffee = CoffeeModel(stream(seed, "coffee"))
     harvest = HarvestModel(stream(seed, "harvest"), ledger_from=EVENTS_START)
-    manager = BaselineManagement()
+    pests = PestModel(stream(seed, "pests"), coffee)
+    manager = BaselineManagement(ipm_enabled=ipm)
+    scouting = stream(seed, "scouting")  # sampling noise in the keeper's pest counts
     block_hours: list[dict[str, np.ndarray]] = []
     coffee_rows: list[dict] = []
     harvest_rows: list[dict] = []
@@ -102,6 +108,22 @@ def run(
         for row in harvest.pick_day(day, crews, coffee):
             harvest_rows.append({"date": pd.Timestamp(day), **row})
         harvest.process_day(day, mast_rain, mast_solar)
+
+        # Pests and disease, then the manager's IPM response (before reordering stock).
+        today_coffee = coffee_rows[-len(coffee.units) :]
+        today_harvest = [r for r in harvest_rows if r["date"] == pd.Timestamp(day)]
+        leaf_wet = np.array([hr["leaf_wetness"] for hr in day_hours]) >= 50
+        block_temp = np.array([hr["air_temperature"] for hr in day_hours])
+        pests.on_day(
+            day,
+            coffee,
+            tmean_c=block_temp.mean(axis=0),
+            rust_wet_hours=(leaf_wet * rust_temperature_weight(block_temp)).sum(axis=0),
+            rain_mm=mast_rain,
+            fallen_kg={f"{r['block_code']}-{r['variety']}": r["fallen_kg"] for r in today_coffee},
+            picked_kg={f"{r['block_code']}-{r['variety']}": r["picked_kg"] for r in today_harvest},
+        )
+        manager.ipm(day, coffee, pests, harvest.ledger, EVENTS_START, mast_rain, scouting)
         manager.reorder(day, harvest.ledger, EVENTS_START)
 
         # Livestock takes over from the seeded history on EVENTS_START.
@@ -156,6 +178,9 @@ def run(
         ("harvest_batches", batch_log, "harvested_on"),
         ("harvest_picks", pick_log, "harvested_on"),
         ("inventory_movements", movement_log, "day"),
+        ("pest_daily", pests.daily, "day"),
+        ("trap_counts", pests.trap_counts, "day"),
+        ("ipm_log", manager.ipm_log, "day"),
         *livestock_logs,
     ):
         if log:

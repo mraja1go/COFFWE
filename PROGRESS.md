@@ -96,9 +96,17 @@ Read this first when resuming in a new terminal/session. For the big picture see
 - Tests share one coffwe_test run via `tests/conftest.py`. 142 tests pass (history → state, Wood peak, milking rules, breeding rules, calving records, dry-off, conception per service, vaccination ages, checkups, long-run mastitis rate, apiary invariants, Postgres write).
 - **Open issue for Phase 3/4:** `hive_overview` uses `CURRENT_DATE` (real clock) but Postgres now holds simulated events through Mar 2027, so durations for future-dated rows come out negative. Needs a decision on the twin's notion of "now" (sim clock vs wall clock).
 
+**M6 — pests & disease + IPM: done (2026-11-25)**
+- `src/coffwe/sim/pests.py`: **berry borer** per (block, variety) — infestation-pressure index (bored share = 1 − e^−P), one generation per 311 degree-days >14.9 °C, breeding only in host berries (≥120-day berries, ripe/over-ripe, fallen-berry reservoir that carries it through the dry season), losses to picking, heavy rain, starvation, trapping, Beauveria; weekly Poisson **pheromone trap counts** (flight peaks after harvest). **Leaf rust** — infection from temperature-weighted leaf-wet hours (M2 hourly), temperature-dependent latent period, sporulation, leaf fall and regrowth, Bordeaux protection washed off by rain; Robusta ~resistant.
+- Coupled to coffee: bored berries lose 35% of their weight before picking; rust defoliation reduces berry fill this year and next year's bud set (1 Dec carry-over).
+- `management.ipm`: monthly lures for 140 traps; Saturday scouting of 100 berries/leaves per block (sampling noise); Beauveria at ≥5% sampled bored (≥21 days apart); Bordeaux only above a rust threshold + 14-day infection-risk index (≥30 days apart); never on a wet day; gleaning once a block's harvest is over; planned jobs buy stock ahead.
+- `run --no-ipm` = counterfactual estate (no traps, sprays or gleaning), saved as a separate `-noipm` run. Seed 42: borer loss 0.8 t (IPM) vs 5.6 t (none); unmanaged infestation 25–36% by Jan–Mar vs ≤5% managed; Arabica rust peaks in Oct at 29% (IPM) vs 37% (none).
+- Fixed a latent truth-store bug: reads lost same-day row order (unstable sort), which made the inventory ledger look negative.
+- 157 tests pass (rust/borer laws, physical bounds via Hypothesis, Bordeaux/Beauveria/gleaning effects, trap response, IPM rules and inventory, managed vs unmanaged estate).
+
 ## Not done yet — the exact next steps
 
-**Phase 2 M6 — pests & disease** (see plan): coffee berry borer by degree-days (pheromone trap counts as the observable), leaf rust infection from leaf-wetness hours + temperature, IPM interventions drawing biocontrols from inventory. Then M7 (machines, full-year run, validation report).
+**Phase 2 M7 — machines & full-year validation** (see plan): asset wear and failures (Weibull), remaining inventory flows (vermicompost production and application, feed), property tests across the engine, and a Phase 2 validation report; then close out Phase 2.
 
 ## Open decisions already made (don't re-ask)
 
