@@ -182,6 +182,7 @@ def run_group(
             unit=r.unit,
             seq=int(r.seq),
             battery_v=float(r.battery_v),
+            sent_at=r.delivered_at.to_pydatetime(),  # the gateway's transmit time
         ).model_dump_json()
         clients[r.station_code].publish(
             reading_topic(SITE[r.station_code], r.station_code, r.measurement),

@@ -205,6 +205,21 @@ def seed(session: Session) -> None:
     seed_bees(session, group_ids["HIVES"], worker_ids)
 
     session.commit()  # all-or-nothing: if anything above failed, nothing is half-loaded
+    refresh_rollups(session)
+
+
+def refresh_rollups(session: Session) -> None:
+    """TRUNCATE empties the hypertable, but a continuous aggregate keeps its materialized
+    buckets until refreshed -- so refresh them over all time. Refreshing can't run in a
+    transaction, hence a separate autocommit connection."""
+    engine = session.get_bind()
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        exists = conn.execute(
+            text("SELECT count(*) FROM pg_extension WHERE extname = 'timescaledb'")
+        ).scalar()
+        if exists:
+            for view in ("sensor_readings_hourly", "sensor_readings_daily"):
+                conn.execute(text(f"CALL refresh_continuous_aggregate('{view}', NULL, NULL)"))
 
 
 def seed_cattle(session: Session, herd_id: int) -> None:

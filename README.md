@@ -57,6 +57,7 @@ Live feed (Mosquitto via Homebrew):
 uv run python -m coffwe.feed broker setup   # passwords into .env, config into data/mosquitto/
 uv run python -m coffwe.feed broker start   # run the broker (leave it running)
 uv run python -m coffwe.feed observe        # virtual sensors -> observed feed for the latest run
+uv run python -m coffwe.feed ingest       # MQTT -> TimescaleDB (leave it running)
 uv run python -m coffwe.feed run --speed 3600 --hours 24   # replay through MQTT
 uv run python -m coffwe.feed clock --speed 60   # or --pause / --resume, while it runs
 ```

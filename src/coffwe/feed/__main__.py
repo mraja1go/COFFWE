@@ -39,6 +39,7 @@ def main() -> None:
     r.add_argument("--speed", type=float, default=3600.0)
     r.add_argument("--start", help="sim start (default: the run's events start)")
     r.add_argument("--hours", type=float, default=24.0, help="sim hours to replay")
+    sub.add_parser("ingest", help="MQTT -> TimescaleDB ingestion (runs until Ctrl-C)")
     c = sub.add_parser("clock", help="change the running feed's clock")
     g = c.add_mutually_exclusive_group(required=True)
     g.add_argument("--speed", type=float)
@@ -97,6 +98,18 @@ def main() -> None:
                 f"  ({res['late_publishes']:,} more than a sim-hour late)"
             )
         print(f"Done in {time.perf_counter() - t0:.1f}s")
+    elif args.command == "ingest":
+        import asyncio
+
+        from coffwe.feed.ingest import from_env
+
+        ingestor = from_env()
+        print(f"Ingesting coffwe/v1/# from {ingestor.host}:{ingestor.port} -- Ctrl-C to stop")
+        try:
+            asyncio.run(ingestor.run())
+        except KeyboardInterrupt:
+            pass
+        print(dict(ingestor.stats))
     elif args.command == "clock":
         from coffwe.feed.publisher import connect, new_client
         from coffwe.feed.schema import CLOCK_SET_TOPIC, ClockCommand

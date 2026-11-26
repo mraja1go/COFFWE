@@ -24,6 +24,11 @@ class Reading(BaseModel):
     unit: str = Field(max_length=10)
     seq: int = Field(ge=0)  # per-device counter: gaps reveal lost messages
     battery_v: float | None = Field(default=None, ge=0, le=6)
+    # When the station/gateway actually transmitted it (sim time). Later than
+    # measured_at for store-and-forward bursts. Lateness is judged from this, not
+    # from when ingestion happened to process it (which, at 3600x, a fraction of a
+    # real second of pipeline delay would turn into simulated minutes).
+    sent_at: AwareDatetime | None = None
 
 
 class StationStatus(BaseModel):

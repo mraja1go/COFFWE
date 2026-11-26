@@ -139,7 +139,17 @@ Read this first when resuming in a new terminal/session. For the big picture see
 
 ## Not done yet — the exact next steps
 
-**Phase 3 M3 — TimescaleDB + ingestion** (see plan): `CREATE EXTENSION timescaledb` via migration; `sensor_readings` hypertable (measured_at, received_at, sensor_id, value, quality flags), station status events, continuous aggregates; asyncio (`aiomqtt`) consumer with Pydantic validation, de-duplication, range flags, late-data handling; station status → `sensor_stations.status`. Remember to migrate `coffwe_test` too.
+**Phase 3 M3 — TimescaleDB + ingestion: done (2026-11-26)**
+- Migration `62824d1d8ecd`: `CREATE EXTENSION timescaledb`; `sensor_readings` **hypertable** (7-day chunks, PK `(sensor_id, measured_at)` so ingestion is idempotent, `quality` ok/out_of_range, `late`, `received_at`, `seq`, `battery_v`; no Timescale default index so `alembic check` stays clean); compression settings (segment by sensor); **continuous aggregates** `sensor_readings_hourly` / `_daily` in real-time mode (quality='ok' only), created in an `autocommit_block()` because they can't run inside Alembic's transaction; `station_status_events`, `ingest_rejects` (dead-letter), `sensor_stations.last_seen_at`. Round-trips cleanly.
+- `feed/ingest.py` (`python -m coffwe.feed ingest`): aiomqtt + async psycopg; **persistent MQTT session** (broker queues messages while ingestion is down); Pydantic validation, unknown/malformed → `ingest_rejects`; out-of-range flagged not dropped; duplicates absorbed by the PK; batched `INSERT … SELECT FROM unnest(…) ON CONFLICT DO NOTHING`; station status events + `last_seen_at`; sequence-gap counting; rollups refreshed as the *sim* clock crosses midnight (Timescale policies run on the wall clock, which our sim-time data ignores).
+- **Wire format gained `sent_at`** (gateway transmit time): lateness is judged from it. Using ingestion's own sim-clock receive time had made pipeline jitter look like field delay (0.25 real s at 7200× = 30 sim min → 36 "late" vs 6 real).
+- Seed now refreshes the rollups after TRUNCATE (aggregates keep materialized buckets otherwise).
+- Measured: 7 sim-days at 43,200× → 43,613/43,613 unique readings stored, 163 duplicates absorbed; ingestion keeps up (the field publisher is the bottleneck at that speed).
+- 238 tests pass (incl. exactly-once storage, late flags vs answer key, rollup = raw average, replay idempotence, fault flagging + dead letters, persistent session across an ingestion outage).
+
+## Not done yet — the exact next steps
+
+**Phase 3 M4 — the twin's "now" + end-to-end validation** (see plan): mirror the estate clock into Postgres; `hive_overview` (and future views) use it instead of `CURRENT_DATE`; replay the seed-42 season end to end; report completeness, latency and observed-vs-truth error (`docs/phase3-report.md`).
 
 ## Open decisions already made (don't re-ask)
 

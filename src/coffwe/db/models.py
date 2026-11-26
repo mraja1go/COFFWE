@@ -325,6 +325,8 @@ class SensorStation(Base):
         str_enum(StationStatus, "status"), server_default=StationStatus.ONLINE.value
     )
     installed_on: Mapped[date]
+    # Sim time of the station's last message (Phase 3 ingestion keeps this current).
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     site: Mapped[Site] = relationship()
     sensors: Mapped[list[Sensor]] = relationship(back_populates="station")
@@ -357,6 +359,66 @@ class Sensor(Base):
 
     def __repr__(self) -> str:
         return f"<Sensor {self.code} [{self.unit}]>"
+
+
+# --- Time series (Phase 3, TimescaleDB) --------------------------------------------
+
+
+class ReadingQuality(enum.StrEnum):
+    OK = "ok"
+    OUT_OF_RANGE = "out_of_range"  # outside the sensor's physical range: a fault, kept
+
+
+class SensorReading(Base):
+    """One observed reading. A TimescaleDB *hypertable*, chunked by measured_at.
+
+    The primary key (sensor_id, measured_at) makes ingestion idempotent: a duplicate
+    delivery or a replay hits the key and is ignored. Times are sim time: measured_at
+    is the device's timestamp, received_at the estate clock when ingestion got it.
+    """
+
+    __tablename__ = "sensor_readings"
+    __table_args__ = (
+        CheckConstraint("received_at >= measured_at - interval '1 hour'", name="received_sane"),
+    )
+
+    sensor_id: Mapped[int] = mapped_column(ForeignKey("sensors.id"), primary_key=True)
+    measured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    value: Mapped[float]
+    quality: Mapped[ReadingQuality] = mapped_column(
+        str_enum(ReadingQuality, "quality"), server_default=ReadingQuality.OK.value
+    )
+    late: Mapped[bool] = mapped_column(server_default="false")  # arrived well after measured
+    seq: Mapped[int | None]
+    battery_v: Mapped[float | None]
+
+    sensor: Mapped[Sensor] = relationship()
+
+
+class StationStatusEvent(Base):
+    """Every online/offline change a station reported (or its last-will reported for it)."""
+
+    __tablename__ = "station_status_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    station_id: Mapped[int] = mapped_column(ForeignKey("sensor_stations.id"), index=True)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))  # sim time
+    status: Mapped[StationStatus] = mapped_column(str_enum(StationStatus, "status"))
+
+    station: Mapped[SensorStation] = relationship()
+
+
+class IngestReject(Base):
+    """Dead-letter queue: messages ingestion couldn't accept, kept for inspection."""
+
+    __tablename__ = "ingest_rejects"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    topic: Mapped[str] = mapped_column(String(200))
+    payload: Mapped[str] = mapped_column(Text)
+    error: Mapped[str] = mapped_column(Text)
 
 
 # --- Livestock ---------------------------------------------------------------------
