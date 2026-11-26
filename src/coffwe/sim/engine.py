@@ -13,8 +13,9 @@
 Subsystems added in later milestones slot into the day loop below.
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -46,6 +47,7 @@ EVENTS_START = date(2026, 11, 25)
 DEFAULT_DAYS = (date(2027, 5, 1) - SPINUP_START).days  # harvest + post-harvest work
 BLOOM_DAYS = 4  # coffee flowers stay open (and full of nectar) ~3-4 days
 GENSET_L_PER_HOUR = 2.5
+IST_ZONE = ZoneInfo("Asia/Kolkata")
 PETROL_L_PER_HOUR = 0.6
 
 
@@ -260,6 +262,7 @@ def run(
     if write_db:
         # Imported here so the simulator itself never needs a database to run.
         from coffwe.seed import seed as reseed
+        from coffwe.seed import set_estate_clock
         from coffwe.sim.db import write_events, write_livestock, write_machines
 
         if session_factory is None:
@@ -270,6 +273,8 @@ def run(
             if cattle is not None and bees is not None:
                 counts |= write_livestock(session, cattle, bees)
             counts |= write_machines(session, machines, EVENTS_START)
+            # The database now holds the whole run: its "now" is the run's end.
+            set_estate_clock(session, datetime.combine(end, time(0, 0), tzinfo=IST_ZONE))
             session.commit()
         store.db_counts = counts
     return store

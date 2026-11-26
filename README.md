@@ -60,6 +60,7 @@ uv run python -m coffwe.feed observe        # virtual sensors -> observed feed f
 uv run python -m coffwe.feed ingest       # MQTT -> TimescaleDB (leave it running)
 uv run python -m coffwe.feed run --speed 3600 --hours 24   # replay through MQTT
 uv run python -m coffwe.feed clock --speed 60   # or --pause / --resume, while it runs
+uv run python -m coffwe.feed validate   # full replay -> docs/phase3-report.md (~6 min)
 ```
 
 ## Task autonomy

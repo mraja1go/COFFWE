@@ -34,7 +34,9 @@ from coffwe.feed.schema import (
 SITE = {s.code: s.site_code for s in STATIONS}
 GROUPS: dict[str, list[str]] = {
     "weather": [s.code for s in STATIONS if s.station_type == "weather"],
-    "field": [s.code for s in STATIONS if s.station_type == "field"],
+    # Ten field stations carry ~77% of the traffic: two processes publish in parallel.
+    "field_a": [s.code for s in STATIONS if s.station_type == "field"][:5],
+    "field_b": [s.code for s in STATIONS if s.station_type == "field"][5:],
     "process_water": [s.code for s in STATIONS if s.station_type in ("process", "water")],
     "corridor": [s.code for s in STATIONS if s.station_type == "corridor"],
 }
@@ -47,6 +49,7 @@ def new_client(client_id: str, username: str, password: str) -> mqtt.Client:
         mqtt.CallbackAPIVersion.VERSION2, client_id=client_id, protocol=mqtt.MQTTv311
     )
     client.username_pw_set(username, password)
+    client.max_inflight_messages_set(200)  # QoS-1 messages awaiting PUBACK at once
     return client
 
 
@@ -191,8 +194,10 @@ def run_group(
         )
         sent += 1
 
-    for st, c in clients.items():  # clean shutdown: say so, then disconnect (no will)
-        c.publish(status_topic(SITE[st], st), "offline", qos=1, retain=True).wait_for_publish(5)
+    # Clean shutdown. QoS-1 messages leave a client in order, so once each station's last
+    # message is acknowledged, everything before it is too -- only then disconnect.
+    for st, c in clients.items():
+        c.publish(status_topic(SITE[st], st), "offline", qos=1, retain=True).wait_for_publish(60)
         c.disconnect()
         c.loop_stop()
     control.disconnect()

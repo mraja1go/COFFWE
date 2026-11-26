@@ -50,6 +50,15 @@ ON CONFLICT (sensor_id, measured_at) DO NOTHING
 """
 
 
+# The estate's "now" for SQL (estate_now()): same anchor + speed as the MQTT clock.
+UPSERT_CLOCK = """
+INSERT INTO estate_clock (id, sim_time, wall_at, speed, running)
+VALUES (1, %s, to_timestamp(%s), %s, %s)
+ON CONFLICT (id) DO UPDATE SET sim_time = EXCLUDED.sim_time, wall_at = EXCLUDED.wall_at,
+    speed = EXCLUDED.speed, running = EXCLUDED.running
+"""
+
+
 def psycopg_url(sqlalchemy_url: str) -> str:
     """'postgresql+psycopg://...' (SQLAlchemy) -> 'postgresql://...' (psycopg)."""
     return sqlalchemy_url.replace("postgresql+psycopg://", "postgresql://", 1)
@@ -118,6 +127,7 @@ class Ingestor:
     _batch: Batch = field(default_factory=Batch)
     _seq: dict[int, int] = field(default_factory=dict)
     _last_refresh_day: object = None
+    _clock_dirty: bool = False
 
     def now(self, fallback: datetime) -> datetime:
         """The estate clock's current sim time (or the reading's own time, if no clock yet)."""
@@ -136,6 +146,7 @@ class Ingestor:
         self.stats["messages"] += 1
         if topic == CLOCK_TOPIC:
             self.clock = ClockState.model_validate_json(payload)
+            self._clock_dirty = True  # mirror it into estate_clock on the next flush
             return
         parts = topic.split("/")
         if len(parts) == 5 and parts[4] == "status":
@@ -195,9 +206,14 @@ class Ingestor:
 
     async def flush(self, conn: psycopg.AsyncConnection) -> None:
         batch, self._batch = self._batch, Batch()
-        if not len(batch):
+        clock, self._clock_dirty = (self.clock if self._clock_dirty else None), False
+        if not len(batch) and clock is None:
             return
         async with conn.transaction():
+            if clock is not None:
+                await conn.execute(
+                    UPSERT_CLOCK, (clock.sim_time, clock.wall_epoch, clock.speed, clock.running)
+                )
             if batch.cols[0]:
                 cur = await conn.execute(INSERT_READINGS, batch.cols)
                 inserted = cur.rowcount

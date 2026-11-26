@@ -152,7 +152,13 @@ def test_every_device_message_arrives_and_validates(fed):
 
 def test_no_group_fell_behind_the_clock(fed):
     _, results, _ = fed
-    assert {r["group"] for r in results} == {"weather", "field", "process_water", "corridor"}
+    assert {r["group"] for r in results} == {
+        "weather",
+        "field_a",
+        "field_b",
+        "process_water",
+        "corridor",
+    }
     assert all(r["late_publishes"] == 0 for r in results)
 
 
@@ -247,3 +253,27 @@ def test_brownouts_in_the_labels_become_offline_online_status(run_dir):
     _, status = load_events(run_dir, ["FS-B4"], start, start + pd.Timedelta(days=3))
     states = [(t.date(), s) for t, _, s in status]
     assert states == [(date(2026, 11, 26), "offline"), (date(2026, 11, 27), "online")]
+
+
+def test_nothing_is_lost_when_the_clock_outruns_the_publishers(mqtt_broker, run_dir):
+    """At 200,000x the publishers fall far behind the clock; they must still deliver
+    every reading (an early stop at `until` once dropped the unsent backlog)."""
+    collector = Collector(mqtt_broker)
+    start = pd.Timestamp("2026-11-27 00:00", tz="Asia/Kolkata")
+    until = start + pd.Timedelta(hours=24)
+    results = run_feed(
+        run_dir,
+        start,
+        until,
+        200_000,
+        "127.0.0.1",
+        mqtt_broker,
+        ("devices", PASSWORDS["devices"]),
+        ("admin", PASSWORDS["admin"]),
+    )
+    time.sleep(1.5)
+    collector.close()
+    expected = load_messages(run_dir)
+    expected = expected[(expected.delivered_at >= start) & (expected.delivered_at < until)]
+    assert any(r["late_publishes"] > 0 for r in results)  # it really did fall behind
+    assert len(collector.readings) == len(expected)

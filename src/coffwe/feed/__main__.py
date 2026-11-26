@@ -40,6 +40,9 @@ def main() -> None:
     r.add_argument("--start", help="sim start (default: the run's events start)")
     r.add_argument("--hours", type=float, default=24.0, help="sim hours to replay")
     sub.add_parser("ingest", help="MQTT -> TimescaleDB ingestion (runs until Ctrl-C)")
+    v = sub.add_parser("validate", help="end-to-end replay -> docs/phase3-report.md")
+    v.add_argument("--speed", type=float, default=40000.0)
+    v.add_argument("--hours", type=float, help="sim hours (default: the whole twin era)")
     c = sub.add_parser("clock", help="change the running feed's clock")
     g = c.add_mutually_exclusive_group(required=True)
     g.add_argument("--speed", type=float)
@@ -110,6 +113,10 @@ def main() -> None:
         except KeyboardInterrupt:
             pass
         print(dict(ingestor.stats))
+    elif args.command == "validate":
+        from coffwe.feed import validate
+
+        print(f"Report written to {validate.run(speed=args.speed, hours=args.hours)}")
     elif args.command == "clock":
         from coffwe.feed.publisher import connect, new_client
         from coffwe.feed.schema import CLOCK_SET_TOPIC, ClockCommand

@@ -968,3 +968,20 @@ class HoneyHarvest(Base):
 
     def __repr__(self) -> str:
         return f"<HoneyHarvest hive={self.hive_id} {self.harvested_on} {self.honey_kg} kg>"
+
+
+class EstateClock(Base):
+    """The estate's "now", mirrored from the MQTT clock (exactly one row, id = 1).
+
+    SQL reads it through estate_now() / estate_today(), so views and queries answer
+    "as of the estate's current moment" -- not the real wall-clock date.
+    """
+
+    __tablename__ = "estate_clock"
+    __table_args__ = (CheckConstraint("id = 1", name="single_row"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+    sim_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))  # sim time at wall_at
+    wall_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))  # real time anchor
+    speed: Mapped[float]
+    running: Mapped[bool]

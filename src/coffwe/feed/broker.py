@@ -80,6 +80,12 @@ password_file {pwfile}
 acl_file {ACL_FILE}
 persistence true
 persistence_location {directory}/
+# QoS 1 only guarantees delivery while the broker may *queue* for a slow or offline
+# subscriber. The default cap is 1,000 messages per client -- beyond it, messages are
+# silently dropped (a full-speed replay lost ~2,400 readings this way). 500,000 covers
+# two months of ingestion downtime at 1x, or a few minutes of backlog at full replay speed.
+max_queued_messages 500000
+max_inflight_messages 200
 log_dest file {directory}/mosquitto.log
 log_type error
 log_type warning

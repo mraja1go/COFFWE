@@ -11,7 +11,8 @@ balances. Livestock gets its recorded *history* (pedigree, vaccinations, calving
 colonies, queens, past honey harvests), since that's state the simulator starts from.
 """
 
-from datetime import UTC, datetime, time
+from datetime import UTC, date, datetime, time
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, insert, select, text
 from sqlalchemy.orm import Session
@@ -24,6 +25,7 @@ from coffwe.db.models import (
     Cattle,
     CattleBreedingEvent,
     CattleHealthEvent,
+    EstateClock,
     Hive,
     HoneyHarvest,
     InventoryItem,
@@ -59,6 +61,9 @@ from coffwe.estate_data import (
     queen_specs,
     worker_specs,
 )
+
+IST = ZoneInfo("Asia/Kolkata")
+EVENTS_START_DAY = date(2026, 11, 25)  # the seeded history ends the day before
 
 
 def _ids(session: Session, model: type[Base]) -> dict[str, int]:
@@ -204,8 +209,16 @@ def seed(session: Session) -> None:
     seed_cattle(session, group_ids["COWS"])
     seed_bees(session, group_ids["HIVES"], worker_ids)
 
+    set_estate_clock(session, datetime.combine(EVENTS_START_DAY, time(0, 0), tzinfo=IST))
     session.commit()  # all-or-nothing: if anything above failed, nothing is half-loaded
     refresh_rollups(session)
+
+
+def set_estate_clock(session: Session, sim_time: datetime, running: bool = False) -> None:
+    """Point the estate's "now" (estate_now() in SQL) at a sim time, paused by default."""
+    session.merge(
+        EstateClock(id=1, sim_time=sim_time, wall_at=datetime.now(UTC), speed=1.0, running=running)
+    )
 
 
 def refresh_rollups(session: Session) -> None:

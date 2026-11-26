@@ -128,8 +128,8 @@ def run_feed(
     last = time.monotonic()
     try:
         while any(p.is_alive() for p in procs):
-            if clock.now() >= until:
-                stop_file.touch()  # past the end: let the groups finish cleanly
+            # No stop at `until`: each group's timeline already ends there, and a group
+            # running behind must still publish its backlog (stopping it here lost data).
             if time.monotonic() - last > REPUBLISH_EVERY_S:
                 publish_clock()
                 last = time.monotonic()

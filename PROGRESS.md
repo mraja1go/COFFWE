@@ -149,7 +149,17 @@ Read this first when resuming in a new terminal/session. For the big picture see
 
 ## Not done yet — the exact next steps
 
-**Phase 3 M4 — the twin's "now" + end-to-end validation** (see plan): mirror the estate clock into Postgres; `hive_overview` (and future views) use it instead of `CURRENT_DATE`; replay the seed-42 season end to end; report completeness, latency and observed-vs-truth error (`docs/phase3-report.md`).
+**Phase 3 M4 — the twin's "now" + end-to-end validation: done (2026-11-26)**
+- Migration `b65f77288bd4`: `estate_clock` (single row, `CHECK id = 1`) + SQL functions **`estate_now()`** (same anchor/speed formula as the MQTT processes; falls back to wall time with no row) and **`estate_today()`** (IST date). Ingestion mirrors every MQTT clock message into it; `seed` sets it to 25 Nov 2026 (paused); `sim run --db` to the run's end (paused).
+- **`hive_overview` is now an "as-of" view** on `estate_today()`: the database holds simulated events *later* than "now" (the simulator writes a whole season, the feed replays it), so the view counts only colonies, queens and harvests that have happened by then. Negative ages fixed; this is the pattern every Phase 4 twin view needs.
+- `python -m coffwe.feed validate` (self-contained: throwaway broker, fresh passwords, empties only the time-series tables) → `docs/phase3-report.md`: funnel scheduled → measured → transmitted → stored, network delay, observed-vs-truth error per sensor type, fault detectability by simple rules, rollups vs truth.
+- **Full-season result (25 Nov → 30 Apr, 982k messages at 40,000×, ~6 min): zero pipeline loss** — all 978,969 radio-delivered readings stored; 3,059 duplicates absorbed; late flags match the answer key exactly; only 44 of 161 spikes (and none of the stuck values, false triggers, misses) are caught by the range rule → Phase 6 anomaly detection.
+- Found and fixed three ways the pipeline was losing ~2,500 readings at full speed: (1) the orchestrator stopped groups at `until` while they still had a backlog; (2) publishers could disconnect with QoS-1 messages in flight; (3) **Mosquitto's default `max_queued_messages` of 1,000 silently dropped messages** for a briefly slow subscriber — now 500,000 (and `max_inflight_messages 200`). The report also stopped hard-coding "lost nothing": it's computed, and broker drop warnings are counted. Field publishers split into two processes (`field_a`, `field_b`).
+- 250 tests pass (incl. estate_now running/paused/fallback, as-of hive views on three days, nothing lost when the clock outruns the publishers, end-to-end validation on the test DB).
+
+## Not done yet — the exact next steps
+
+**Phase 3 M5 — GCP Pub/Sub bridge (quota-guarded)** (see plan): you enable the Pub/Sub API and run `gcloud auth` (exact commands will be given); service account with publish-only rights; bridge MQTT → Pub/Sub with batching and a persistent monthly byte budget; dry-run mode; a pull-subscriber check. The $1 budget alert stays as the backstop.
 
 ## Open decisions already made (don't re-ask)
 
