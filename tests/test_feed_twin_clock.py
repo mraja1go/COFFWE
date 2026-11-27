@@ -142,7 +142,10 @@ def test_validation_replay_loses_nothing_and_mirrors_the_clock(url, tmp_path):
     assert (j.loc[on_time, "stored"]).all()  # nothing lost between radio and database
     assert rep["broker_drops"] == 0
     assert m["clock"][1] in (date(2026, 11, 26), date(2026, 11, 27))  # clock followed the feed
-    report = validate.write_report(store.run_dir, start, until, rep, m, 20000)
+    # Write to a temp file: the real docs/phase3-report.md is the full-season run.
+    report = validate.write_report(
+        store.run_dir, start, until, rep, m, 20000, path=tmp_path / "report.md"
+    )
     text = report.read_text()
     assert "lost nothing" in text and "Accuracy" in text
     time.sleep(0.1)
