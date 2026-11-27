@@ -6,7 +6,7 @@ Mosquitto broker and the ingestion service into TimescaleDB, then compared readi
 reading with the virtual devices' answer key (`observed_labels`)._
 
 ## Pipeline run
-- 9,387 MQTT messages in 8 s real time (1,180 msg/s). Per group: corridor 578 (0 behind), field_a 3,620 (0 behind), field_b 3,605 (0 behind), process_water 720 (0 behind), weather 864 (0 behind).
+- 9,387 MQTT messages in 8 s real time (1,185 msg/s). Per group: corridor 578 (0 behind), field_a 3,620 (25 behind), field_b 3,605 (25 behind), process_water 720 (0 behind), weather 864 (0 behind).
 - Ingestion: 9,427 messages handled, 9,359 readings stored,
   **28 duplicates absorbed** by the primary key, 0 rejected,
   36 station status events, 1 rollup refreshes.

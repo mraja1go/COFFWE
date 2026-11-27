@@ -13,8 +13,8 @@ See **[docs/estate-concept.md](docs/estate-concept.md)** for the full, finalized
 | 0 | Foundations & setup (this repo, GCP free-tier account) | done |
 | 1 | Estate data model (Postgres + Alembic, 23 tables) | done |
 | 2 | Simulation engine (weather → soil → coffee → harvest, livestock, pests, machines) | done |
-| 3 | Live feed / integration layer (MQTT → Pub/Sub) | next |
-| 4 | Digital twin core + dashboard | planned |
+| 3 | Live feed (virtual sensors → MQTT → TimescaleDB, Pub/Sub bridge) | done |
+| 4 | Digital twin core + dashboard | next |
 | 5 | AI brains v1 (rule-based) | planned |
 | 6 | AI brains v2 (ML/stats) | planned |
 | 7 | AI brains v3 (LLM/agentic) | planned |
@@ -61,6 +61,9 @@ uv run python -m coffwe.feed ingest       # MQTT -> TimescaleDB (leave it runnin
 uv run python -m coffwe.feed run --speed 3600 --hours 24   # replay through MQTT
 uv run python -m coffwe.feed clock --speed 60   # or --pause / --resume, while it runs
 uv run python -m coffwe.feed validate   # full replay -> docs/phase3-report.md (~6 min)
+uv run python -m coffwe.feed bridge --dry-run   # MQTT -> GCP Pub/Sub, counting only
+uv run python -m coffwe.feed bridge             # the real thing (5 GiB/month guard)
+uv run python -m coffwe.feed bridge-check       # pull a few envelopes back
 ```
 
 ## Task autonomy

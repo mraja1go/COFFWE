@@ -1,6 +1,6 @@
 # Phase 3 — Live feed / integration layer (plan)
 
-_Agreed 2026-11-25. Phase 2 built "the real estate" (ground truth in Parquet). Phase 3 builds how the estate is **observed**: imperfect field hardware reporting over a real IoT protocol into a time-series store — the data the digital twin (Phase 4) and the AI brains (Phases 5–7) will actually see._
+_Agreed 2026-11-25; **completed 2026-11-27** (M1–M5, see `PROGRESS.md` and `docs/phase3-report.md`). Phase 2 built "the real estate" (ground truth in Parquet). Phase 3 builds how the estate is **observed**: imperfect field hardware reporting over a real IoT protocol into a time-series store — the data the digital twin (Phase 4) and the AI brains (Phases 5–7) will actually see._
 
 ## Decisions
 

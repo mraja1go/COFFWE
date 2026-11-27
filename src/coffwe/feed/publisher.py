@@ -44,9 +44,16 @@ MAX_SLEEP_S = 0.2  # never sleep longer than this, so clock changes are noticed 
 KEEPALIVE_S = 5
 
 
-def new_client(client_id: str, username: str, password: str) -> mqtt.Client:
+def new_client(
+    client_id: str, username: str, password: str, clean_session: bool = True
+) -> mqtt.Client:
+    """clean_session=False asks the broker to keep a *persistent session*: it remembers
+    our subscriptions and queues QoS-1 messages for us while we're disconnected."""
     client = mqtt.Client(
-        mqtt.CallbackAPIVersion.VERSION2, client_id=client_id, protocol=mqtt.MQTTv311
+        mqtt.CallbackAPIVersion.VERSION2,
+        client_id=client_id,
+        clean_session=clean_session,
+        protocol=mqtt.MQTTv311,
     )
     client.username_pw_set(username, password)
     client.max_inflight_messages_set(200)  # QoS-1 messages awaiting PUBACK at once

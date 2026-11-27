@@ -1,4 +1,4 @@
-# Progress checkpoint — 2026-11-25
+# Progress checkpoint — 2026-11-27
 
 Read this first when resuming in a new terminal/session. For the big picture see `README.md`; for the full original roadmap see `docs/plan-phase-0.md`; for the estate itself see `docs/estate-concept.md`.
 
@@ -9,7 +9,7 @@ Read this first when resuming in a new terminal/session. For the big picture see
 - Python project scaffolded with `uv` (src-layout `coffwe` package), `pytest` + `ruff` + `pre-commit` all wired and passing.
 - Git commit signing fixed (GPG key generated for `Raja <35078189+mraja1go@users.noreply.github.com>`, no passphrase).
 - `docs/estate-concept.md` — the finalized COFFWE estate (70 ac, 10 blocks, 15,050 Arabica / 15,050 Robusta, full species/livestock/processing/corridor/pest-system detail). This is the ground truth for everything downstream.
-- GCP project `coffwe-estate-dt` created, billing linked, budget alert active ($1 SGD, fires at 50/90/100%). **No APIs enabled yet** — nothing running, nothing that can cost money.
+- GCP project `coffwe-estate-dt` created, billing linked, budget alert active ($1 SGD, fires at 50/90/100%). (Correction 2026-11-27: Google had enabled its default API set on the new project — BigQuery, Logging, Monitoring etc. — which costs nothing unless used. Pub/Sub was added in Phase 3 M5, see below.)
 - Two design artifacts saved locally under `docs/artifacts/` (originals were Claude-published artifacts, now preserved as plain HTML — open either directly in a browser):
   - `estate-concept-sketch.html` — the visual estate map/sketch.
   - `system-architecture.html` — the full 12-layer system architecture + tool choices for every phase.
@@ -159,7 +159,21 @@ Read this first when resuming in a new terminal/session. For the big picture see
 
 ## Not done yet — the exact next steps
 
-**Phase 3 M5 — GCP Pub/Sub bridge (quota-guarded)** (see plan): you enable the Pub/Sub API and run `gcloud auth` (exact commands will be given); service account with publish-only rights; bridge MQTT → Pub/Sub with batching and a persistent monthly byte budget; dry-run mode; a pull-subscriber check. The $1 budget alert stays as the backstop.
+**Phase 3 M5 — GCP Pub/Sub bridge: done (2026-11-27). Phase 3 complete.**
+- **Cloud resources** in `coffwe-estate-dt` (created with your approval; all free tier):
+  - APIs enabled: `pubsub`, `iam`, `iamcredentials`.
+  - Topic `coffwe-sensor-readings`; pull subscription `coffwe-twin-pull` (1-day retention, 60 s ack deadline, expires after 31 idle days).
+  - Service account `coffwe-bridge@coffwe-estate-dt.iam.gserviceaccount.com` with **only** `roles/pubsub.publisher` **on that topic**, no user-managed keys; your account has `roles/iam.serviceAccountTokenCreator` on it (impersonation). Verified it *cannot* read the subscription.
+  - Your Application Default Credentials: `~/.config/gcloud/application_default_credentials.json` (outside the repo).
+  - To remove everything: `gcloud pubsub subscriptions delete coffwe-twin-pull`, `gcloud pubsub topics delete coffwe-sensor-readings`, `gcloud iam service-accounts delete coffwe-bridge@coffwe-estate-dt.iam.gserviceaccount.com` (all with `--project coffwe-estate-dt`).
+- `feed/bridge.py` (`python -m coffwe.feed bridge [--dry-run]`, `bridge-check`): read-only MQTT client with a persistent session → **envelopes** of up to 200 readings/status as gzip JSON lines (Pub/Sub bills each request ≥ 1 KB — batching is >50× cheaper) → Pub/Sub as the impersonated service account. **Quota guard**: persistent monthly ledger `data/bridge/budget.json` of estimated billed bytes (publish + delivery, each ≥ 1 KB), cap **5 GiB/month** (`BRIDGE_MONTHLY_BYTES`); envelopes that would cross it are held back and counted — local MQTT/TimescaleDB keep everything.
+- Live check: 6 sim-hours → 1,620 items in 10 envelopes → Pub/Sub → pulled back: **1,566/1,566 readings + 54 status**, ~41 KiB of budget.
+- `new_client(..., clean_session=)` now a proper parameter (persistent sessions for ingestion and the bridge).
+- 257 tests pass (envelope round trip and compression, billing floor, batching cost, ledger persistence and monthly reset, hold-back at the cap, forwarding through a real broker into an in-memory sink).
+
+## Not done yet — the exact next steps
+
+**Phase 4 — digital twin core + dashboard**, starting with its own planning pass: the twin service mirroring the estate from TimescaleDB + the relational tables "as of" `estate_now()`; an API (FastAPI) and a web dashboard with live charts and the estate map. Open decisions there: twin service shape, how the dashboard gets live updates (polling / server-sent events / websockets), and whether it reads the cloud copy (Pub/Sub) or the local database.
 
 ## Open decisions already made (don't re-ask)
 
